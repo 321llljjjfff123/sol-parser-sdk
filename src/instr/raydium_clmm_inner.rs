@@ -1,6 +1,7 @@
 //! Raydium CLMM Inner Instruction 解析器
 //!
 //! ## 解析器插件系统
+#![allow(unused_imports)]
 //!
 //! 本模块提供两种可插拔的解析器实现：
 //!
@@ -16,8 +17,6 @@
 
 use crate::core::events::*;
 use crate::instr::inner_common::*;
-use solana_sdk::pubkey::Pubkey;
-
 
 /// Raydium CLMM inner instruction discriminators (16 bytes)
 pub mod discriminators {
