@@ -298,6 +298,12 @@ fn parse_create_event_optimized(
         } else {
             false
         };
+        offset += 1;
+        let is_cashback_enabled = if offset < data.len() {
+            read_bool_unchecked(data, offset)
+        } else {
+            false
+        };
 
         let metadata = EventMetadata {
             signature,
@@ -325,6 +331,7 @@ fn parse_create_event_optimized(
             token_total_supply,
             token_program,
             is_mayhem_mode,
+            is_cashback_enabled,
         }))
     }
 }
@@ -451,11 +458,23 @@ fn parse_trade_event_optimized(
             String::new()
         };
 
-        // mayhem_mode: bool (1 byte, new field from IDL update)
+        // mayhem_mode: bool (1 byte), cashback_fee_basis_points (8), cashback (8) - PUMP_CASHBACK_README
         let mayhem_mode = if offset < data.len() {
             read_bool_unchecked(data, offset)
         } else {
             false
+        };
+        offset += 1;
+        let cashback_fee_basis_points = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
+        };
+        offset += 8;
+        let cashback = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
         };
 
         let metadata = EventMetadata {
@@ -492,6 +511,8 @@ fn parse_trade_event_optimized(
             last_update_timestamp,
             ix_name: ix_name.clone(),
             mayhem_mode,
+            cashback_fee_basis_points,
+            cashback,
             bonding_curve: Pubkey::default(),
             associated_bonding_curve: Pubkey::default(),
             creator_vault: Pubkey::default(),
@@ -708,11 +729,23 @@ pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata, is_created_bu
             String::new()
         };
 
-        // mayhem_mode: bool (1 byte, new field from IDL update)
+        // mayhem_mode (1), cashback_fee_basis_points (8), cashback (8) - PUMP_CASHBACK_README
         let mayhem_mode = if offset < data.len() {
             read_bool_unchecked(data, offset)
         } else {
             false
+        };
+        offset += 1;
+        let cashback_fee_basis_points = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
+        };
+        offset += 8;
+        let cashback = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
         };
 
         let trade_event = PumpFunTradeEvent {
@@ -741,6 +774,8 @@ pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata, is_created_bu
             last_update_timestamp,
             ix_name: ix_name.clone(),
             mayhem_mode,
+            cashback_fee_basis_points,
+            cashback,
             bonding_curve: Pubkey::default(),
             associated_bonding_curve: Pubkey::default(),
             creator_vault: Pubkey::default(),
@@ -851,6 +886,12 @@ pub fn parse_create_from_data(data: &[u8], metadata: EventMetadata) -> Option<De
         } else {
             false
         };
+        offset += 1;
+        let is_cashback_enabled = if offset < data.len() {
+            read_bool_unchecked(data, offset)
+        } else {
+            false
+        };
 
         Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
             metadata,
@@ -868,6 +909,7 @@ pub fn parse_create_from_data(data: &[u8], metadata: EventMetadata) -> Option<De
             token_total_supply,
             token_program,
             is_mayhem_mode,
+            is_cashback_enabled,
         }))
     }
 }

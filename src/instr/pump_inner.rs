@@ -279,14 +279,34 @@ fn parse_trade_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Op
         };
         offset += 8;
 
-        let ix_name = if offset + 4 <= data.len() {
-            if let Some((s, _)) = read_str_unchecked(data, offset) {
-                s.to_string()
+        let (ix_name, ix_name_len) = if offset + 4 <= data.len() {
+            if let Some((s, consumed)) = read_str_unchecked(data, offset) {
+                (s.to_string(), consumed)
             } else {
-                String::new()
+                (String::new(), 0)
             }
         } else {
-            String::new()
+            (String::new(), 0)
+        };
+        offset += ix_name_len;
+
+        // TradeEvent 新增字段 (PUMP_CASHBACK_README): mayhem_mode, cashback_fee_basis_points, cashback
+        let mayhem_mode = if offset + 1 <= data.len() {
+            read_bool_unchecked(data, offset)
+        } else {
+            false
+        };
+        offset += 1;
+        let cashback_fee_basis_points = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
+        };
+        offset += 8;
+        let cashback = if offset + 8 <= data.len() {
+            read_u64_unchecked(data, offset)
+        } else {
+            0
         };
 
         // Inner instruction 只包含日志数据，不含指令上下文账户
@@ -315,6 +335,9 @@ fn parse_trade_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Op
             current_sol_volume,
             last_update_timestamp,
             ix_name: ix_name.clone(),
+            mayhem_mode,
+            cashback_fee_basis_points,
+            cashback,
             ..Default::default() // 其他账户字段由 instruction 提供
         };
 
@@ -421,6 +444,14 @@ fn parse_create_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> O
         } else {
             false
         };
+        offset += 1;
+
+        // IDL CreateEvent 最后一列: is_cashback_enabled
+        let is_cashback_enabled = if offset < data.len() {
+            read_bool_unchecked(data, offset)
+        } else {
+            false
+        };
 
         Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
             metadata,
@@ -438,6 +469,7 @@ fn parse_create_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> O
             token_total_supply,
             token_program,
             is_mayhem_mode,
+            is_cashback_enabled,
         }))
     }
 }

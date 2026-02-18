@@ -90,8 +90,11 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 Test parsing latency with the optimized examples:
 
 ```bash
-# PumpFun with detailed metrics
+# PumpFun with detailed metrics (per-event + 10s stats)
 cargo run --example pumpfun_with_metrics --release
+
+# PumpSwap with detailed metrics (per-event + 10s stats)
+cargo run --example pumpswap_with_metrics --release
 
 # PumpSwap ultra-low latency test
 cargo run --example pumpswap_low_latency --release
@@ -117,6 +120,7 @@ cargo run --example pumpswap_ordered --release
 | `parse_pump_tx` | Parse specific PumpFun transaction from RPC | `TX_SIGNATURE=<sig> cargo run --example parse_pump_tx --release` |
 | `debug_pump_tx` | Debug PumpFun transaction parsing | `cargo run --example debug_pump_tx --release` |
 | **PumpSwap Examples** |
+| `pumpswap_with_metrics` | PumpSwap event parsing with detailed performance metrics | `cargo run --example pumpswap_with_metrics --release` |
 | `pumpswap_low_latency` | PumpSwap ultra-low latency testing (Unordered, full event data) | `cargo run --example pumpswap_low_latency --release` |
 | `pumpswap_ordered` | PumpSwap Buy/Sell/CreatePool with MicroBatch ordering | `cargo run --example pumpswap_ordered --release` |
 | `parse_pumpswap_tx` | Parse specific PumpSwap transaction from RPC | `TX_SIGNATURE=<sig> cargo run --example parse_pumpswap_tx --release` |

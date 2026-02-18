@@ -116,6 +116,10 @@ pub struct PumpFunTradeEvent {
     pub ix_name: String,
     /// Mayhem mode flag (new field from IDL update)
     pub mayhem_mode: bool,
+    /// Cashback fee basis points (PUMP_CASHBACK_README)
+    pub cashback_fee_basis_points: u64,
+    /// Cashback amount (PUMP_CASHBACK_README)
+    pub cashback: u64,
 
     // === Instruction parameter fields (reserved for future use, DO NOT delete) ===
     // pub amount: u64,                     // buy/sell.args.amount
@@ -184,10 +188,10 @@ pub struct PumpFunCreateTokenEvent {
     pub real_token_reserves: u64,
     pub token_total_supply: u64,
 
-    #[borsh(skip)]
     pub token_program: Pubkey,
-    #[borsh(skip)]
     pub is_mayhem_mode: bool,
+    /// Cashback 是否开启 (IDL CreateEvent.is_cashback_enabled)
+    pub is_cashback_enabled: bool,
 }
 
 /// PumpSwap Trade Event - Unified trade event from IDL TradeEvent
@@ -257,6 +261,10 @@ pub struct PumpSwapBuyEvent {
     pub min_base_amount_out: u64,
     /// Instruction name (new field from IDL update)
     pub ix_name: String,
+    /// Cashback fee basis points (PUMP_CASHBACK_README)
+    pub cashback_fee_basis_points: u64,
+    /// Cashback amount (PUMP_CASHBACK_README)
+    pub cashback: u64,
 
     // === 额外的信息 ===
     #[borsh(skip)]
@@ -309,6 +317,10 @@ pub struct PumpSwapSellEvent {
     pub coin_creator: Pubkey,
     pub coin_creator_fee_basis_points: u64,
     pub coin_creator_fee: u64,
+    /// Cashback fee basis points (PUMP_CASHBACK_README)
+    pub cashback_fee_basis_points: u64,
+    /// Cashback amount (PUMP_CASHBACK_README)
+    pub cashback: u64,
 
     // === 额外的信息 ===
     #[borsh(skip)]
@@ -357,6 +369,8 @@ pub struct PumpSwapCreatePoolEvent {
     pub user_base_token_account: Pubkey,
     pub user_quote_token_account: Pubkey,
     pub coin_creator: Pubkey,
+    /// IDL CreatePoolEvent 最后一列
+    pub is_mayhem_mode: bool,
 }
 
 /// PumpSwap Pool Created Event - 指令解析版本
@@ -1144,7 +1158,7 @@ pub struct PumpFunBondingCurveAccountEvent {
     pub bonding_curve: PumpFunBondingCurve,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PumpFunBondingCurve {
     pub virtual_token_reserves: u64,
     pub virtual_sol_reserves: u64,
@@ -1152,6 +1166,9 @@ pub struct PumpFunBondingCurve {
     pub real_sol_reserves: u64,
     pub token_total_supply: u64,
     pub complete: bool,
+    /// Cashback 币种标记 (PUMP_CASHBACK_README)
+    #[serde(default)]
+    pub is_cashback_coin: bool,
 }
 
 /// PumpFun Global Account Event

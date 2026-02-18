@@ -93,6 +93,10 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 # PumpFun 详细性能指标
 cargo run --example pumpfun_with_metrics --release
 
+# PumpSwap 详细性能指标（单事件明细 + 每 10 秒统计）
+cargo run --example pumpswap_with_metrics --release
+
+
 # PumpSwap 超低延迟测试
 cargo run --example pumpswap_low_latency --release
 
@@ -117,6 +121,7 @@ cargo run --example pumpswap_ordered --release
 | `parse_pump_tx` | 从 RPC 解析特定 PumpFun 交易 | `TX_SIGNATURE=<sig> cargo run --example parse_pump_tx --release` |
 | `debug_pump_tx` | 调试 PumpFun 交易解析 | `cargo run --example debug_pump_tx --release` |
 | **PumpSwap 示例** |
+| `pumpswap_with_metrics` | PumpSwap 事件解析 + 详细性能指标 | `cargo run --example pumpswap_with_metrics --release` |
 | `pumpswap_low_latency` | PumpSwap 超低延迟测试（无序，完整事件数据） | `cargo run --example pumpswap_low_latency --release` |
 | `pumpswap_ordered` | PumpSwap 买入/卖出/创建池 + MicroBatch 有序模式 | `cargo run --example pumpswap_ordered --release` |
 | `parse_pumpswap_tx` | 从 RPC 解析特定 PumpSwap 交易 | `TX_SIGNATURE=<sig> cargo run --example parse_pumpswap_tx --release` |
