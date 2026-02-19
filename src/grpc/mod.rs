@@ -18,8 +18,8 @@ pub mod types;
 // 重新导出主要API
 pub use client::YellowstoneGrpc;
 pub use types::{
-    AccountFilter, ClientConfig, EventType as StreamingEventType, EventTypeFilter, OrderMode,
-    Protocol, SlotFilter, TransactionFilter,
+    account_filter_memcmp, AccountFilter, ClientConfig, EventType as StreamingEventType,
+    EventTypeFilter, OrderMode, Protocol, SlotFilter, TransactionFilter,
 };
 
 // 事件解析器重新导出
