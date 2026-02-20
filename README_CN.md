@@ -85,6 +85,19 @@ sol-parser-sdk = { path = "../sol-parser-sdk" }
 sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, features = ["parse-zero-copy"] }
 ```
 
+### 使用 crates.io
+
+```toml
+# 在 Cargo.toml 中添加
+sol-parser-sdk = "0.2.2"
+```
+
+或使用零拷贝解析器（最高性能）：
+
+```toml
+sol-parser-sdk = { version = "0.2.2", default-features = false, features = ["parse-zero-copy"] }
+```
+
 ### 性能测试
 
 使用优化示例测试解析延迟：
