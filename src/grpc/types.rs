@@ -246,6 +246,7 @@ pub enum EventType {
     PumpFunSell,     // Sell events only (filter by ix_name)
     PumpFunBuyExactSolIn, // BuyExactSolIn events only (filter by ix_name)
     PumpFunCreate,
+    PumpFunCreateV2, // SPL-22 / Mayhem create
     PumpFunComplete,
     PumpFunMigrate,
 
@@ -365,6 +366,7 @@ impl EventTypeFilter {
                         | EventType::PumpFunSell
                         | EventType::PumpFunBuyExactSolIn
                         | EventType::PumpFunCreate
+                        | EventType::PumpFunCreateV2
                         | EventType::PumpFunComplete
                         | EventType::PumpFunMigrate
                 )
@@ -380,6 +382,7 @@ impl EventTypeFilter {
                         | EventType::PumpFunSell
                         | EventType::PumpFunBuyExactSolIn
                         | EventType::PumpFunCreate
+                        | EventType::PumpFunCreateV2
                         | EventType::PumpFunComplete
                         | EventType::PumpFunMigrate
                 )

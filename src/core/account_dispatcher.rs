@@ -85,6 +85,11 @@ pub fn fill_accounts_with_owned_keys(
                 account_fillers::pumpfun::fill_create_accounts(e, get);
             });
         }
+        DexEvent::PumpFunCreateV2(e) => {
+            fill_event_accounts!(e, meta, transaction, program_invokes, &PUMPFUN_PROGRAM, |get: &AccountGetter<'_>| {
+                account_fillers::pumpfun::fill_create_v2_accounts(e, get);
+            });
+        }
         DexEvent::PumpFunMigrate(e) => {
             fill_event_accounts!(e, meta, transaction, program_invokes, &PUMPFUN_PROGRAM, |get: &AccountGetter<'_>| {
                 account_fillers::pumpfun::fill_migrate_accounts(e, get);
@@ -307,6 +312,11 @@ pub fn fill_accounts_from_transaction_data(
         DexEvent::PumpFunCreate(e) => {
             fill_event_accounts!(e, meta, transaction, program_invokes, PUMPFUN_PROGRAM_ID, |get: &AccountGetter<'_>| {
                 account_fillers::pumpfun::fill_create_accounts(e, get);
+            });
+        }
+        DexEvent::PumpFunCreateV2(e) => {
+            fill_event_accounts!(e, meta, transaction, program_invokes, PUMPFUN_PROGRAM_ID, |get: &AccountGetter<'_>| {
+                account_fillers::pumpfun::fill_create_v2_accounts(e, get);
             });
         }
         DexEvent::PumpFunMigrate(e) => {

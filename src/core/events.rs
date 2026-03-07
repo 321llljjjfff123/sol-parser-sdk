@@ -197,6 +197,53 @@ pub struct PumpFunCreateTokenEvent {
     pub is_cashback_enabled: bool,
 }
 
+/// PumpFun Create V2 Token Event (SPL-22 / Mayhem Mode)
+/// 与 solana-streamer 对齐；指令解析时从 accounts 0..15 填充。
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BorshDeserialize)]
+pub struct PumpFunCreateV2TokenEvent {
+    #[borsh(skip)]
+    pub metadata: EventMetadata,
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+    pub mint: Pubkey,
+    pub bonding_curve: Pubkey,
+    pub user: Pubkey,
+    pub creator: Pubkey,
+    pub timestamp: i64,
+    pub virtual_token_reserves: u64,
+    pub virtual_sol_reserves: u64,
+    pub real_token_reserves: u64,
+    pub token_total_supply: u64,
+    pub token_program: Pubkey,
+    pub is_mayhem_mode: bool,
+    pub is_cashback_enabled: bool,
+    #[borsh(skip)]
+    pub mint_authority: Pubkey,
+    #[borsh(skip)]
+    pub associated_bonding_curve: Pubkey,
+    #[borsh(skip)]
+    pub global: Pubkey,
+    #[borsh(skip)]
+    pub system_program: Pubkey,
+    #[borsh(skip)]
+    pub associated_token_program: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_program_id: Pubkey,
+    #[borsh(skip)]
+    pub global_params: Pubkey,
+    #[borsh(skip)]
+    pub sol_vault: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_state: Pubkey,
+    #[borsh(skip)]
+    pub mayhem_token_vault: Pubkey,
+    #[borsh(skip)]
+    pub event_authority: Pubkey,
+    #[borsh(skip)]
+    pub program: Pubkey,
+}
+
 /// PumpSwap Trade Event - Unified trade event from IDL TradeEvent
 /// Produced by: buy, sell, buy_exact_sol_in instructions
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1840,8 +1887,9 @@ pub struct MeteoraDlmmClaimFeeEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DexEvent {
     // PumpFun 事件
-    PumpFunCreate(PumpFunCreateTokenEvent), // - 已对接
-    PumpFunTrade(PumpFunTradeEvent),        // - 已对接 (统一交易事件，包含所有交易类型)
+    PumpFunCreate(PumpFunCreateTokenEvent),   // - 已对接
+    PumpFunCreateV2(PumpFunCreateV2TokenEvent), // - 已对接 (CreateV2 / Mayhem)
+    PumpFunTrade(PumpFunTradeEvent),           // - 已对接 (统一交易事件，包含所有交易类型)
     PumpFunBuy(PumpFunTradeEvent),          // - 已对接 (仅买入事件，用于过滤)
     PumpFunSell(PumpFunTradeEvent),         // - 已对接 (仅卖出事件，用于过滤)
     PumpFunBuyExactSolIn(PumpFunTradeEvent), // - 已对接 (精确SOL买入事件，用于过滤)
@@ -1944,6 +1992,7 @@ impl DexEvent {
         match self {
             // PumpFun 事件
             DexEvent::PumpFunCreate(e) => &e.metadata,
+            DexEvent::PumpFunCreateV2(e) => &e.metadata,
             DexEvent::PumpFunTrade(e) => &e.metadata,
             DexEvent::PumpFunBuy(e) => &e.metadata,
             DexEvent::PumpFunSell(e) => &e.metadata,

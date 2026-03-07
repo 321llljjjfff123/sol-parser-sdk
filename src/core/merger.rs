@@ -33,6 +33,7 @@ pub fn merge_events(base: &mut DexEvent, inner: DexEvent) {
             => merge_pumpfun_trade(b, i),
 
         (PumpFunCreate(b), PumpFunCreate(i)) => merge_pumpfun_create(b, i),
+        (PumpFunCreateV2(b), PumpFunCreateV2(i)) => merge_generic(b, i),
         (PumpFunMigrate(b), PumpFunMigrate(i)) => merge_pumpfun_migrate(b, i),
 
         // ========== PumpSwap 系列 ==========
@@ -207,8 +208,9 @@ pub fn can_merge(base: &DexEvent, inner: &DexEvent) -> bool {
         | (DexEvent::PumpFunBuyExactSolIn(_), DexEvent::PumpFunTrade(_))
         | (DexEvent::PumpFunBuyExactSolIn(_), DexEvent::PumpFunBuyExactSolIn(_)) => true,
 
-        // PumpFun Create 可以合并
+        // PumpFun Create / CreateV2 可以合并
         (DexEvent::PumpFunCreate(_), DexEvent::PumpFunCreate(_)) => true,
+        (DexEvent::PumpFunCreateV2(_), DexEvent::PumpFunCreateV2(_)) => true,
 
         // PumpFun Migrate 可以合并
         (DexEvent::PumpFunMigrate(_), DexEvent::PumpFunMigrate(_)) => true,

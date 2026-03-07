@@ -165,7 +165,7 @@ pub fn parse_rpc_transaction(
             is_created_buy,
         ) {
             // Check if this is a PumpFun create event to set is_created_buy flag
-            if matches!(event, DexEvent::PumpFunCreate(_)) {
+            if matches!(event, DexEvent::PumpFunCreate(_) | DexEvent::PumpFunCreateV2(_)) {
                 is_created_buy = true;
             }
 

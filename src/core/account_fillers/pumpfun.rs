@@ -63,6 +63,63 @@ pub fn fill_create_accounts(e: &mut PumpFunCreateTokenEvent, get: &AccountGetter
     }
 }
 
+/// 填充 PumpFun CreateV2 事件账户
+///
+/// CreateV2 instruction (idl create_v2): 0 mint, 1 mint_authority, 2 bonding_curve,
+/// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
+/// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
+/// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program.
+pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountGetter<'_>) {
+    if e.mint == Pubkey::default() {
+        e.mint = get(0);
+    }
+    if e.bonding_curve == Pubkey::default() {
+        e.bonding_curve = get(2);
+    }
+    if e.user == Pubkey::default() {
+        e.user = get(5);
+    }
+    if e.mint_authority == Pubkey::default() {
+        e.mint_authority = get(1);
+    }
+    if e.associated_bonding_curve == Pubkey::default() {
+        e.associated_bonding_curve = get(3);
+    }
+    if e.global == Pubkey::default() {
+        e.global = get(4);
+    }
+    if e.system_program == Pubkey::default() {
+        e.system_program = get(6);
+    }
+    if e.token_program == Pubkey::default() {
+        e.token_program = get(7);
+    }
+    if e.associated_token_program == Pubkey::default() {
+        e.associated_token_program = get(8);
+    }
+    if e.mayhem_program_id == Pubkey::default() {
+        e.mayhem_program_id = get(9);
+    }
+    if e.global_params == Pubkey::default() {
+        e.global_params = get(10);
+    }
+    if e.sol_vault == Pubkey::default() {
+        e.sol_vault = get(11);
+    }
+    if e.mayhem_state == Pubkey::default() {
+        e.mayhem_state = get(12);
+    }
+    if e.mayhem_token_vault == Pubkey::default() {
+        e.mayhem_token_vault = get(13);
+    }
+    if e.event_authority == Pubkey::default() {
+        e.event_authority = get(14);
+    }
+    if e.program == Pubkey::default() {
+        e.program = get(15);
+    }
+}
+
 /// 填充 PumpFun Migrate 事件账户
 pub fn fill_migrate_accounts(_e: &mut PumpFunMigrateEvent, _get: &AccountGetter<'_>) {
     // 暂未实现 - 需要 IDL

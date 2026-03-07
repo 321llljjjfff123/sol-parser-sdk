@@ -346,6 +346,7 @@ pub fn parse_log_optimized(
             if let Some(ref include_only) = filter.include_only {
                 let has_specific_filter = include_only.iter().any(|t| matches!(t,
                     EventType::PumpFunBuy | EventType::PumpFunSell | EventType::PumpFunBuyExactSolIn
+                        | EventType::PumpFunCreate | EventType::PumpFunCreateV2
                 ));
                 if has_specific_filter {
                     let event_type_matches = match &event {
@@ -353,6 +354,8 @@ pub fn parse_log_optimized(
                         DexEvent::PumpFunSell(_) => include_only.contains(&EventType::PumpFunSell),
                         DexEvent::PumpFunBuyExactSolIn(_) => include_only.contains(&EventType::PumpFunBuyExactSolIn),
                         DexEvent::PumpFunTrade(_) => include_only.contains(&EventType::PumpFunTrade),
+                        DexEvent::PumpFunCreate(_) => include_only.contains(&EventType::PumpFunCreate),
+                        DexEvent::PumpFunCreateV2(_) => include_only.contains(&EventType::PumpFunCreateV2),
                         _ => false,
                     };
                     if !event_type_matches {

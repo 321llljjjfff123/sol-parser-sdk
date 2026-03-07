@@ -15,6 +15,8 @@ pub mod discriminators {
     pub const SELL: [u8; 8] = [51, 230, 133, 164, 1, 127, 131, 173];
     /// Create instruction: create a new bonding curve
     pub const CREATE: [u8; 8] = [24, 30, 200, 40, 5, 28, 7, 119];
+    /// CreateV2 instruction: SPL-22 / Mayhem mode (idl create_v2)
+    pub const CREATE_V2: [u8; 8] = [214, 144, 76, 236, 95, 139, 49, 180];
     /// buy_exact_sol_in: Given a budget of spendable SOL, buy at least min_tokens_out
     pub const BUY_EXACT_SOL_IN: [u8; 8] = [56, 252, 116, 8, 158, 223, 205, 95];
     /// Migrate event log discriminator (CPI)
@@ -26,8 +28,8 @@ pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::PUMPFUN_PROGRAM_ID;
 
 /// Main PumpFun instruction parser
 ///
-/// Note: Full event data (amounts, fees, reserves) is parsed from logs.
-/// Instruction parsing only handles MIGRATE_EVENT_LOG which is not available in logs.
+/// Outer instructions (8-byte discriminator): CREATE, CREATE_V2 从指令解析并返回事件；
+/// BUY/SELL 仍以 log 为主。Inner CPI: MIGRATE_EVENT_LOG 仅在此解析。
 pub fn parse_instruction(
     instruction_data: &[u8],
     accounts: &[Pubkey],
@@ -37,26 +39,36 @@ pub fn parse_instruction(
     block_time_us: Option<i64>,
     grpc_recv_us: i64,
 ) -> Option<DexEvent> {
-    // BUY/SELL/CREATE events are parsed from logs for complete data
-    // Only parse MIGRATE_EVENT_LOG here (CPI instruction not available in logs)
-    if instruction_data.len() < 16 {
+    if instruction_data.len() < 8 {
         return None;
     }
+    let outer_disc: [u8; 8] = instruction_data[0..8].try_into().ok()?;
+    let data = &instruction_data[8..];
 
-    let cpi_discriminator: [u8; 8] = instruction_data[8..16].try_into().ok()?;
-    if cpi_discriminator == discriminators::MIGRATE_EVENT_LOG {
-        parse_migrate_log_instruction(
-            &instruction_data[16..],
-            accounts,
-            signature,
-            slot,
-            tx_index,
-            block_time_us,
-            grpc_recv_us,
-        )
-    } else {
-        None
+    // 外层指令：Create / CreateV2（与 solana-streamer 功能对齐）
+    if outer_disc == discriminators::CREATE_V2 {
+        return parse_create_v2_instruction(data, accounts, signature, slot, tx_index, block_time_us, grpc_recv_us);
     }
+    if outer_disc == discriminators::CREATE {
+        return parse_create_instruction(data, accounts, signature, slot, tx_index, block_time_us, grpc_recv_us);
+    }
+
+    // Inner CPI：仅 MIGRATE 在此解析
+    if instruction_data.len() >= 16 {
+        let cpi_disc: [u8; 8] = instruction_data[8..16].try_into().ok()?;
+        if cpi_disc == discriminators::MIGRATE_EVENT_LOG {
+            return parse_migrate_log_instruction(
+                &instruction_data[16..],
+                accounts,
+                signature,
+                slot,
+                tx_index,
+                block_time_us,
+                grpc_recv_us,
+            );
+        }
+    }
+    None
 }
 
 /// Parse buy/buy_exact_sol_in instruction
@@ -156,12 +168,11 @@ fn parse_sell_instruction(
     }))
 }
 
-/// Parse create instruction
+/// Parse create instruction (legacy)
 ///
 /// Account indices (from pump.json):
 /// 0: mint, 1: mint_authority, 2: bonding_curve, 3: associated_bonding_curve,
-/// 4: global, 5: mpl_token_metadata, 6: metadata, 7: user
-#[allow(dead_code)]
+/// 4: global, 5: mpl_token_metadata, 6: metadata, 7: user. 共至少 8 个账户。
 fn parse_create_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -221,6 +232,83 @@ fn parse_create_instruction(
         bonding_curve: get_account(accounts, 2).unwrap_or_default(),
         user: get_account(accounts, 7).unwrap_or_default(),
         creator,
+        ..Default::default()
+    }))
+}
+
+/// Parse create_v2 instruction (SPL-22 / Mayhem)
+///
+/// Account indices (idl pumpfun.json create_v2): 0 mint, 1 mint_authority, 2 bonding_curve,
+/// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
+/// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
+/// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program. 共 16 个账户。
+fn parse_create_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+) -> Option<DexEvent> {
+    const CREATE_V2_MIN_ACCOUNTS: usize = 16;
+    if accounts.len() < CREATE_V2_MIN_ACCOUNTS {
+        return None;
+    }
+
+    let mut offset = 0;
+    let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        offset += len;
+        s.to_string()
+    } else {
+        String::new()
+    };
+    let symbol = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        offset += len;
+        s.to_string()
+    } else {
+        String::new()
+    };
+    let uri = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        offset += len;
+        s.to_string()
+    } else {
+        String::new()
+    };
+    let creator = if offset + 32 <= data.len() {
+        read_pubkey(data, offset).unwrap_or_default()
+    } else {
+        Pubkey::default()
+    };
+
+    let mint = get_account(accounts, 0)?;
+    let metadata = create_metadata(
+        signature, slot, tx_index,
+        block_time_us.unwrap_or_default(), grpc_recv_us,
+    );
+
+    Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
+        metadata,
+        name,
+        symbol,
+        uri,
+        mint,
+        bonding_curve: get_account(accounts, 2).unwrap_or_default(),
+        user: get_account(accounts, 5).unwrap_or_default(),
+        creator,
+        mint_authority: get_account(accounts, 1).unwrap_or_default(),
+        associated_bonding_curve: get_account(accounts, 3).unwrap_or_default(),
+        global: get_account(accounts, 4).unwrap_or_default(),
+        system_program: get_account(accounts, 6).unwrap_or_default(),
+        token_program: get_account(accounts, 7).unwrap_or_default(),
+        associated_token_program: get_account(accounts, 8).unwrap_or_default(),
+        mayhem_program_id: get_account(accounts, 9).unwrap_or_default(),
+        global_params: get_account(accounts, 10).unwrap_or_default(),
+        sol_vault: get_account(accounts, 11).unwrap_or_default(),
+        mayhem_state: get_account(accounts, 12).unwrap_or_default(),
+        mayhem_token_vault: get_account(accounts, 13).unwrap_or_default(),
+        event_authority: get_account(accounts, 14).unwrap_or_default(),
+        program: get_account(accounts, 15).unwrap_or_default(),
         ..Default::default()
     }))
 }
