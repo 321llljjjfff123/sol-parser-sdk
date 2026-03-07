@@ -11,7 +11,6 @@ use crate::instr::read_pubkey_fast;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use std::collections::HashMap;
-use std::sync::Arc;
 use yellowstone_grpc_proto::prelude::{Transaction, TransactionStatusMeta};
 
 /// 解析交易中的所有指令事件（instruction + inner instruction）
@@ -44,7 +43,7 @@ pub fn parse_instructions_enhanced(
     let recent_blockhash = if msg.recent_blockhash.is_empty() {
         None
     } else {
-        Some(Arc::new(msg.recent_blockhash.clone()))
+        Some(bs58::encode(&msg.recent_blockhash).into_string())
     };
 
     // 提前检查：是否需要解析 instruction（根据 filter）
@@ -128,7 +127,7 @@ pub fn parse_instructions_enhanced(
 
     for e in merged.iter_mut() {
         if let Some(m) = e.metadata_mut() {
-            m.recent_blockhash = recent_blockhash.clone(); // Arc clone: no allocation
+            m.recent_blockhash = recent_blockhash.clone();
         }
     }
 

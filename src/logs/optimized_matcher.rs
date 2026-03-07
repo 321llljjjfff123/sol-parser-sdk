@@ -331,7 +331,7 @@ pub fn parse_log_optimized(
         tx_index,
         block_time_us: block_time_us.unwrap_or(0),
         grpc_recv_us,
-        recent_blockhash: recent_blockhash.map(|s| std::sync::Arc::new(s.to_vec())),
+        recent_blockhash: recent_blockhash.map(|s| bs58::encode(s).into_string()),
     };
 
     // ========================================================================

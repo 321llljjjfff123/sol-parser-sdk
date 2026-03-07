@@ -6,7 +6,6 @@
 use borsh::BorshDeserialize;
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use std::sync::Arc;
 
 /// 基础元数据 - 所有事件共享的字段
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -16,32 +15,9 @@ pub struct EventMetadata {
     pub tx_index: u64, // 交易在slot中的索引，参考solana-streamer
     pub block_time_us: i64,
     pub grpc_recv_us: i64,
-    /// Transaction's recent blockhash (32 bytes), when available. Arc to avoid per-event clone in hot path.
-    #[serde(
-        serialize_with = "serialize_recent_blockhash",
-        deserialize_with = "deserialize_recent_blockhash",
-        default
-    )]
-    pub recent_blockhash: Option<Arc<Vec<u8>>>,
-}
-
-fn serialize_recent_blockhash<S>(v: &Option<Arc<Vec<u8>>>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::Serialize;
-    match v {
-        Some(arc) => (**arc).serialize(s),
-        None => s.serialize_none(),
-    }
-}
-
-fn deserialize_recent_blockhash<'de, D>(d: D) -> Result<Option<Arc<Vec<u8>>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let opt: Option<Vec<u8>> = <Option<Vec<u8>> as Deserialize>::deserialize(d)?;
-    Ok(opt.map(Arc::new))
+    /// Transaction's recent blockhash as base58 string, when available.
+    #[serde(default)]
+    pub recent_blockhash: Option<String>,
 }
 
 /// Block Meta Event
