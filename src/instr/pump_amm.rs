@@ -73,12 +73,15 @@ pub fn parse_instruction(
 
 /// Parse buy instruction
 ///
-/// Account indices (from pump_amm.json):
-/// 0: pool, 1: user, 2: global_config, 3: base_mint, 4: quote_mint,
-/// 5: user_base_token_account, 6: user_quote_token_account,
-/// 7: pool_base_token_account, 8: pool_quote_token_account,
-/// 9: protocol_fee_recipient, 10: protocol_fee_recipient_token_account,
-/// 11: base_token_program, 12: quote_token_program
+/// Account indices (from pump_amm.json IDL), 23 个固定账户:
+/// 0 pool, 1 user, 2 global_config, 3 base_mint, 4 quote_mint,
+/// 5 user_base_token_account, 6 user_quote_token_account,
+/// 7 pool_base_token_account, 8 pool_quote_token_account,
+/// 9 protocol_fee_recipient, 10 protocol_fee_recipient_token_account,
+/// 11 base_token_program, 12 quote_token_program,
+/// 13 system_program, 14 associated_token_program, 15 event_authority, 16 program,
+/// 17 coin_creator_vault_ata, 18 coin_creator_vault_authority,
+/// 19 global_volume_accumulator, 20 user_volume_accumulator, 21 fee_config, 22 fee_program.
 #[allow(dead_code)]
 fn parse_buy_instruction(
     data: &[u8],
@@ -105,7 +108,7 @@ fn parse_buy_instruction(
         block_time_us.unwrap_or_default(), 0
     );
 
-    Some(DexEvent::PumpSwapBuy(PumpSwapBuyEvent {
+    let mut ev = PumpSwapBuyEvent {
         metadata,
         pool: get_account(accounts, 0).unwrap_or_default(),
         user: get_account(accounts, 1).unwrap_or_default(),
@@ -122,7 +125,12 @@ fn parse_buy_instruction(
         base_amount_out: base_amount,
         max_quote_amount_in: quote_amount,
         ..Default::default()
-    }))
+    };
+    if accounts.len() >= 19 {
+        ev.coin_creator_vault_ata = get_account(accounts, 17).unwrap_or_default();
+        ev.coin_creator_vault_authority = get_account(accounts, 18).unwrap_or_default();
+    }
+    Some(DexEvent::PumpSwapBuy(ev))
 }
 
 /// Parse buy_exact_quote_in instruction
@@ -131,12 +139,7 @@ fn parse_buy_instruction(
 /// - buy: base_amount_out (token) first, max_quote_amount_in (SOL) second
 /// - buy_exact_quote_in: spendable_quote_in (SOL) first, min_base_amount_out (token) second
 ///
-/// Account indices (from pump_amm.json):
-/// 0: pool, 1: user, 2: global_config, 3: base_mint, 4: quote_mint,
-/// 5: user_base_token_account, 6: user_quote_token_account,
-/// 7: pool_base_token_account, 8: pool_quote_token_account,
-/// 9: protocol_fee_recipient, 10: protocol_fee_recipient_token_account,
-/// 11: base_token_program, 12: quote_token_program
+/// Account indices: 与 buy 相同，共 23 个 (0-22)，见 parse_buy_instruction 注释。
 #[allow(dead_code)]
 fn parse_buy_exact_quote_in_instruction(
     data: &[u8],
@@ -163,7 +166,7 @@ fn parse_buy_exact_quote_in_instruction(
         block_time_us.unwrap_or_default(), 0
     );
 
-    Some(DexEvent::PumpSwapBuy(PumpSwapBuyEvent {
+    let mut ev = PumpSwapBuyEvent {
         metadata,
         pool: get_account(accounts, 0).unwrap_or_default(),
         user: get_account(accounts, 1).unwrap_or_default(),
@@ -180,12 +183,25 @@ fn parse_buy_exact_quote_in_instruction(
         base_amount_out: base_amount,
         max_quote_amount_in: quote_amount,
         ..Default::default()
-    }))
+    };
+    if accounts.len() >= 19 {
+        ev.coin_creator_vault_ata = get_account(accounts, 17).unwrap_or_default();
+        ev.coin_creator_vault_authority = get_account(accounts, 18).unwrap_or_default();
+    }
+    Some(DexEvent::PumpSwapBuy(ev))
 }
 
 /// Parse sell instruction
 ///
-/// Account indices same as buy
+/// Account indices (from pump_amm.json IDL), 21 个固定账户:
+/// 0 pool, 1 user, 2 global_config, 3 base_mint, 4 quote_mint,
+/// 5 user_base_token_account, 6 user_quote_token_account,
+/// 7 pool_base_token_account, 8 pool_quote_token_account,
+/// 9 protocol_fee_recipient, 10 protocol_fee_recipient_token_account,
+/// 11 base_token_program, 12 quote_token_program,
+/// 13 system_program, 14 associated_token_program, 15 event_authority, 16 program,
+/// 17 coin_creator_vault_ata, 18 coin_creator_vault_authority,
+/// 19 fee_config, 20 fee_program.
 #[allow(dead_code)]
 fn parse_sell_instruction(
     data: &[u8],
@@ -211,7 +227,7 @@ fn parse_sell_instruction(
         block_time_us.unwrap_or_default(), 0
     );
 
-    Some(DexEvent::PumpSwapSell(PumpSwapSellEvent {
+    let mut ev = PumpSwapSellEvent {
         metadata,
         pool: get_account(accounts, 0).unwrap_or_default(),
         user: get_account(accounts, 1).unwrap_or_default(),
@@ -228,7 +244,12 @@ fn parse_sell_instruction(
         base_amount_in: base_amount,
         min_quote_amount_out: quote_amount,
         ..Default::default()
-    }))
+    };
+    if accounts.len() >= 19 {
+        ev.coin_creator_vault_ata = get_account(accounts, 17).unwrap_or_default();
+        ev.coin_creator_vault_authority = get_account(accounts, 18).unwrap_or_default();
+    }
+    Some(DexEvent::PumpSwapSell(ev))
 }
 
 /// Parse create_pool instruction

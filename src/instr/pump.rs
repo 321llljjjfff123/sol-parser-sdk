@@ -61,9 +61,13 @@ pub fn parse_instruction(
 
 /// Parse buy/buy_exact_sol_in instruction
 ///
-/// Account indices (from pump.json):
+/// Account indices (from pump.json IDL), 15 个固定账户:
 /// 0: global, 1: fee_recipient, 2: mint, 3: bonding_curve,
-/// 4: associated_bonding_curve, 5: associated_user, 6: user
+/// 4: associated_bonding_curve, 5: associated_user, 6: user,
+/// 7: system_program, 8: token_program, 9: creator_vault,
+/// 10: event_authority, 11: program, 12: global_volume_accumulator,
+/// 13: user_volume_accumulator, 14: fee_config.
+/// remaining_accounts 可能含 bonding_curve_v2 等。
 #[allow(dead_code)]
 fn parse_buy_instruction(
     data: &[u8],
@@ -106,9 +110,12 @@ fn parse_buy_instruction(
 
 /// Parse sell instruction
 ///
-/// Account indices (from pump.json):
+/// Account indices (from pump.json IDL), 14 个固定账户:
 /// 0: global, 1: fee_recipient, 2: mint, 3: bonding_curve,
-/// 4: associated_bonding_curve, 5: associated_user, 6: user
+/// 4: associated_bonding_curve, 5: associated_user, 6: user,
+/// 7: system_program, 8: creator_vault, 9: token_program,
+/// 10: event_authority, 11: program, 12: fee_config, 13: fee_program.
+/// remaining_accounts 可能含 user_volume_accumulator（返现）、bonding_curve_v2 等。
 #[allow(dead_code)]
 fn parse_sell_instruction(
     data: &[u8],

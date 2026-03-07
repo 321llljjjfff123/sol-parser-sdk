@@ -8,19 +8,14 @@ pub type AccountGetter<'a> = dyn Fn(usize) -> Pubkey + 'a;
 
 /// 填充 PumpFun Trade 事件账户
 ///
-/// PumpFun Buy/Sell instruction account mapping (based on IDL):
-/// 0: global
-/// 1: feeRecipient
-/// 2: mint
-/// 3: bondingCurve
-/// 4: associatedBondingCurve
-/// 5: associatedUser
-/// 6: user
-/// 7: systemProgram
-/// 8: tokenProgram (buy) / associatedTokenProgram (sell)
-/// 9: rent (buy) / eventAuthority (sell)
-/// 10: eventAuthority (buy) / program (sell)
-/// 11: program
+/// PumpFun Buy/Sell instruction account mapping (from pumpfun.json IDL):
+/// Buy 共 16 个固定账户:
+/// 0 global, 1 fee_recipient, 2 mint, 3 bonding_curve, 4 associated_bonding_curve, 5 associated_user, 6 user,
+/// 7 system_program, 8 token_program, 9 creator_vault, 10 event_authority, 11 program,
+/// 12 global_volume_accumulator, 13 user_volume_accumulator, 14 fee_config, 15 fee_program.
+/// Sell 共 14 个固定账户:
+/// 0 global, 1 fee_recipient, 2 mint, 3 bonding_curve, 4 associated_bonding_curve, 5 associated_user, 6 user,
+/// 7 system_program, 8 creator_vault, 9 token_program, 10 event_authority, 11 program, 12 fee_config, 13 fee_program.
 pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
     if e.user == Pubkey::default() {
         e.user = get(6);
