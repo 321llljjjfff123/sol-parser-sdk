@@ -54,9 +54,17 @@ pub fn parse_transaction_from_rpc(
         max_supported_transaction_version: Some(0),
     };
 
-    let rpc_tx = rpc_client
-        .get_transaction_with_config(signature, config)
-        .map_err(|e| ParseError::RpcError(e.to_string()))?;
+    let rpc_tx = rpc_client.get_transaction_with_config(signature, config).map_err(|e| {
+        let msg = e.to_string();
+        if msg.contains("invalid type: null") && msg.contains("EncodedConfirmedTransactionWithStatusMeta") {
+            ParseError::RpcError(format!(
+                "Transaction not found (RPC returned null). Common causes: 1) Transaction is too old and pruned (use an archive RPC). 2) Wrong network or invalid signature. Try SOLANA_RPC_URL with an archive endpoint (e.g. Helius, QuickNode) or a more recent tx. Original: {}",
+                msg
+            ))
+        } else {
+            ParseError::RpcError(msg)
+        }
+    })?;
 
     parse_rpc_transaction(&rpc_tx, filter)
 }

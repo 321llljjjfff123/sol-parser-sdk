@@ -143,6 +143,9 @@ pub struct PumpFunTradeEvent {
     pub token_program: Pubkey, // sell - 9 / buy - 8
     #[borsh(skip)]
     pub creator_vault: Pubkey, // sell - 8 / buy - 9
+    /// 第 17 个指令账户 (index 16)，区块浏览器显示为 "Account"，部分 buy/sell 会传入
+    #[borsh(skip)]
+    pub account: Option<Pubkey>,
 }
 
 /// PumpFun Migrate Event

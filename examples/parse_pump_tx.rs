@@ -3,11 +3,17 @@
 //! This example fetches a PumpFun transaction from RPC
 //! and parses it using sol-parser-sdk's RPC parsing support.
 //!
-//! Transaction: 5curEt85cQhAK6R9pntSJ4fmYCiPEG22NjZyGrnGSbNwAkHJMN25T9Efp1n9Tf9vGXhnDXMQYrCNpoRHQTMcZ1s9
+//! If you see "Transaction not found (RPC returned null)": the tx may be too old.
+//! Many public RPCs only keep recent blocks; use an archive RPC (e.g. Helius, QuickNode)
+//! or set SOLANA_RPC_URL to one.
 //!
 //! Usage:
 //! ```bash
 //! cargo run --example parse_pump_tx --release
+//! # Custom signature (optional):
+//! TX_SIGNATURE=your_tx_sig cargo run --example parse_pump_tx --release
+//! # Custom RPC (optional):
+//! SOLANA_RPC_URL=https://api.mainnet-beta.solana.com cargo run --example parse_pump_tx --release
 //! ```
 
 use solana_client::rpc_client::RpcClient;
@@ -16,21 +22,22 @@ use sol_parser_sdk::parse_transaction_from_rpc;
 use std::str::FromStr;
 
 fn main() {
-    // 交易签名
-    let tx_sig = "5curEt85cQhAK6R9pntSJ4fmYCiPEG22NjZyGrnGSbNwAkHJMN25T9Efp1n9Tf9vGXhnDXMQYrCNpoRHQTMcZ1s9";
+    // 交易签名：优先从环境变量 TX_SIGNATURE 读取，否则用默认示例
+    let default_sig = "64srGF8CnTz9zPbdayWYmzs5aVRFBcfjDcidFVvBgAD25VMh52wr88vma7ytSbAZT3C5Giu5BPyGfNfLexLSrKhP";
+    let tx_sig = std::env::var("TX_SIGNATURE").unwrap_or_else(|_| default_sig.to_string());
 
     println!("=== PumpFun Transaction Parser ===\n");
     println!("Transaction Signature: {}\n", tx_sig);
 
-    // 连接到 Solana RPC
+    // 连接到 Solana RPC（默认使用官方 mainnet 公开 RPC）
     let rpc_url = std::env::var("SOLANA_RPC_URL")
-        .unwrap_or_else(|_| "https://solana-rpc.publicnode.com".to_string());
+        .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string());
 
     println!("Connecting to: {}", rpc_url);
     let client = RpcClient::new(rpc_url);
 
     // 解析签名
-    let signature = Signature::from_str(tx_sig)
+    let signature = Signature::from_str(&tx_sig)
         .expect("Failed to parse signature");
 
     // 使用 sol-parser-sdk 直接解析交易
@@ -41,9 +48,9 @@ fn main() {
         Ok(events) => events,
         Err(e) => {
             eprintln!("✗ Failed to parse transaction: {}", e);
-            eprintln!("\nNote: You might need to use a different RPC endpoint.");
-            eprintln!("Set SOLANA_RPC_URL environment variable to use a custom endpoint.");
-            eprintln!("Example: export SOLANA_RPC_URL=https://your-rpc-endpoint.com");
+            eprintln!("\nNote: If the error says 'Transaction not found (RPC returned null)', the tx may be pruned.");
+            eprintln!("Use an archive RPC (e.g. Helius, QuickNode) or set SOLANA_RPC_URL.");
+            eprintln!("Example: export SOLANA_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY");
             std::process::exit(1);
         }
     };

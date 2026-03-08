@@ -9,13 +9,12 @@ pub type AccountGetter<'a> = dyn Fn(usize) -> Pubkey + 'a;
 /// 填充 PumpFun Trade 事件账户
 ///
 /// PumpFun Buy/Sell instruction account mapping (from pumpfun.json IDL):
-/// Buy 共 16 个固定账户:
+/// Buy 共 16 个固定账户 + 可选第 17 个:
 /// 0 global, 1 fee_recipient, 2 mint, 3 bonding_curve, 4 associated_bonding_curve, 5 associated_user, 6 user,
 /// 7 system_program, 8 token_program, 9 creator_vault, 10 event_authority, 11 program,
-/// 12 global_volume_accumulator, 13 user_volume_accumulator, 14 fee_config, 15 fee_program.
-/// Sell 共 14 个固定账户:
-/// 0 global, 1 fee_recipient, 2 mint, 3 bonding_curve, 4 associated_bonding_curve, 5 associated_user, 6 user,
-/// 7 system_program, 8 creator_vault, 9 token_program, 10 event_authority, 11 program, 12 fee_config, 13 fee_program.
+/// 12 global_volume_accumulator, 13 user_volume_accumulator, 14 fee_config, 15 fee_program,
+/// 16 (可选) remaining_account / fee 相关，部分交易存在。
+/// Sell 共 14 个固定账户，部分版本也有 17 个账户时 16 同 buy。
 pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
     if e.user == Pubkey::default() {
         e.user = get(6);
@@ -31,6 +30,11 @@ pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
     }
     if e.token_program == Pubkey::default() {
         e.token_program = if e.is_buy { get(8) } else { get(9) };
+    }
+    // 第 17 个账户 (index 16)：区块浏览器显示为 "Account"，getter 越界时返回 default，故仅非 default 时写入
+    let a17 = get(16);
+    if a17 != Pubkey::default() {
+        e.account = Some(a17);
     }
 }
 
@@ -123,4 +127,35 @@ pub fn fill_create_v2_accounts(e: &mut PumpFunCreateV2TokenEvent, get: &AccountG
 /// 填充 PumpFun Migrate 事件账户
 pub fn fill_migrate_accounts(_e: &mut PumpFunMigrateEvent, _get: &AccountGetter<'_>) {
     // 暂未实现 - 需要 IDL
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 验证第 17 个账户 (account 字段) 在 gRPC/RPC 路径下会被正确填充：fill_trade_accounts 用 get(16) 写入 e.account
+    #[test]
+    fn test_fill_trade_accounts_account_17() {
+        let account_17 = Pubkey::new_from_array([17u8; 32]);
+        let get = |i: usize| -> Pubkey {
+            if i == 16 {
+                account_17
+            } else {
+                Pubkey::default()
+            }
+        };
+        let getter: &AccountGetter = &get;
+
+        let mut e = PumpFunTradeEvent {
+            account: None,
+            ..Default::default()
+        };
+
+        fill_trade_accounts(&mut e, getter);
+        assert_eq!(
+            e.account,
+            Some(account_17),
+            "第 17 个账户 (account) 应被填充，gRPC/RPC 路径均走 fill_trade_accounts"
+        );
+    }
 }
