@@ -17,6 +17,7 @@
 
 use crate::core::events::*;
 use crate::instr::inner_common::*;
+use solana_sdk::pubkey::Pubkey;
 
 /// Raydium CLMM inner instruction discriminators (16 bytes)
 pub mod discriminators {

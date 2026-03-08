@@ -244,7 +244,7 @@ fn parse_buy_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<Dex
             0
         };
         let ix_name = if offset + 4 <= data.len() {
-            if let Some((s, consumed)) = unsafe { inner_common::read_string_unchecked(data, offset) } {
+            if let Some((s, consumed)) = unsafe { read_string_unchecked(data, offset) } {
                 offset += consumed;
                 s
             } else {
