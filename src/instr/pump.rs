@@ -242,6 +242,7 @@ fn parse_create_instruction(
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program. 共 16 个账户。
+/// Guard: return None when accounts.len() < 16 to avoid index out of bounds (e.g. ALT-loaded tx).
 fn parse_create_v2_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -255,6 +256,7 @@ fn parse_create_v2_instruction(
     if accounts.len() < CREATE_V2_MIN_ACCOUNTS {
         return None;
     }
+    let acc = &accounts[0..CREATE_V2_MIN_ACCOUNTS];
 
     let mut offset = 0;
     let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
@@ -281,7 +283,7 @@ fn parse_create_v2_instruction(
         Pubkey::default()
     };
 
-    let mint = get_account(accounts, 0)?;
+    let mint = acc[0];
     let metadata = create_metadata(
         signature, slot, tx_index,
         block_time_us.unwrap_or_default(), grpc_recv_us,
@@ -293,22 +295,22 @@ fn parse_create_v2_instruction(
         symbol,
         uri,
         mint,
-        bonding_curve: get_account(accounts, 2).unwrap_or_default(),
-        user: get_account(accounts, 5).unwrap_or_default(),
+        bonding_curve: acc[2],
+        user: acc[5],
         creator,
-        mint_authority: get_account(accounts, 1).unwrap_or_default(),
-        associated_bonding_curve: get_account(accounts, 3).unwrap_or_default(),
-        global: get_account(accounts, 4).unwrap_or_default(),
-        system_program: get_account(accounts, 6).unwrap_or_default(),
-        token_program: get_account(accounts, 7).unwrap_or_default(),
-        associated_token_program: get_account(accounts, 8).unwrap_or_default(),
-        mayhem_program_id: get_account(accounts, 9).unwrap_or_default(),
-        global_params: get_account(accounts, 10).unwrap_or_default(),
-        sol_vault: get_account(accounts, 11).unwrap_or_default(),
-        mayhem_state: get_account(accounts, 12).unwrap_or_default(),
-        mayhem_token_vault: get_account(accounts, 13).unwrap_or_default(),
-        event_authority: get_account(accounts, 14).unwrap_or_default(),
-        program: get_account(accounts, 15).unwrap_or_default(),
+        mint_authority: acc[1],
+        associated_bonding_curve: acc[3],
+        global: acc[4],
+        system_program: acc[6],
+        token_program: acc[7],
+        associated_token_program: acc[8],
+        mayhem_program_id: acc[9],
+        global_params: acc[10],
+        sol_vault: acc[11],
+        mayhem_state: acc[12],
+        mayhem_token_vault: acc[13],
+        event_authority: acc[14],
+        program: acc[15],
         ..Default::default()
     }))
 }
