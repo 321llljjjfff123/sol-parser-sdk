@@ -89,13 +89,13 @@ sol-parser-sdk = { path = "../sol-parser-sdk", default-features = false, feature
 
 ```toml
 # Add to your Cargo.toml
-sol-parser-sdk = "0.2.2"
+sol-parser-sdk = "0.3.0"
 ```
 
 Or with the zero-copy parser (maximum performance):
 
 ```toml
-sol-parser-sdk = { version = "0.2.2", default-features = false, features = ["parse-zero-copy"] }
+sol-parser-sdk = { version = "0.3.0", default-features = false, features = ["parse-zero-copy"] }
 ```
 
 ### Performance Testing
