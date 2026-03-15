@@ -47,10 +47,26 @@ pub fn parse_instruction(
 
     // 外层指令：Create / CreateV2（与 solana-streamer 功能对齐）
     if outer_disc == discriminators::CREATE_V2 {
-        return parse_create_v2_instruction(data, accounts, signature, slot, tx_index, block_time_us, grpc_recv_us);
+        return parse_create_v2_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+        );
     }
     if outer_disc == discriminators::CREATE {
-        return parse_create_instruction(data, accounts, signature, slot, tx_index, block_time_us, grpc_recv_us);
+        return parse_create_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+        );
     }
 
     // Inner CPI：仅 MIGRATE 在此解析
@@ -102,10 +118,8 @@ fn parse_buy_instruction(
     };
 
     let mint = get_account(accounts, 2)?;
-    let metadata = create_metadata(
-        signature, slot, tx_index,
-        block_time_us.unwrap_or_default(), grpc_recv_us
-    );
+    let metadata =
+        create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
     Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
         metadata,
@@ -150,10 +164,8 @@ fn parse_sell_instruction(
     };
 
     let mint = get_account(accounts, 2)?;
-    let metadata = create_metadata(
-        signature, slot, tx_index,
-        block_time_us.unwrap_or_default(), grpc_recv_us
-    );
+    let metadata =
+        create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
     Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
         metadata,
@@ -218,10 +230,8 @@ fn parse_create_instruction(
     };
 
     let mint = get_account(accounts, 0)?;
-    let metadata = create_metadata(
-        signature, slot, tx_index,
-        block_time_us.unwrap_or_default(), grpc_recv_us
-    );
+    let metadata =
+        create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
     Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
         metadata,
@@ -284,10 +294,8 @@ fn parse_create_v2_instruction(
     };
 
     let mint = acc[0];
-    let metadata = create_metadata(
-        signature, slot, tx_index,
-        block_time_us.unwrap_or_default(), grpc_recv_us,
-    );
+    let metadata =
+        create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
     Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
         metadata,
