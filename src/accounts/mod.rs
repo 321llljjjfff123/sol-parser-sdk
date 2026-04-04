@@ -1,6 +1,7 @@
 pub mod nonce;
 pub mod program_ids;
 pub mod pumpswap;
+pub mod rpc_wallet;
 pub mod token;
 pub mod utils;
 use crate::core::events::EventMetadata;
@@ -11,6 +12,7 @@ use program_ids::*;
 pub use pumpswap::{
     parse_global_config as parse_pumpswap_global_config, parse_pool as parse_pumpswap_pool,
 };
+pub use rpc_wallet::rpc_resolve_user_wallet_pubkey;
 pub use token::parse_token_account;
 pub use token::AccountData;
 pub use utils::*;

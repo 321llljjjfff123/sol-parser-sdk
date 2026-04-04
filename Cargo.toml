@@ -29,6 +29,7 @@ ultra-perf = []   # 极限性能模式（启用所有 unsafe 优化）
 
 [dependencies]
 solana-sdk = "3.0.0"
+solana-system-interface = "2.0.0"
 solana-client = "3.0.8"
 solana-program = "3.0.0"
 solana-rpc-client = "3.0.8"

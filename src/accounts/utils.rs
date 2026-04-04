@@ -3,6 +3,9 @@
 //! 提供账户数据解析的通用工具函数
 
 use solana_sdk::pubkey::Pubkey;
+use solana_system_interface::program as system_program;
+use spl_token::solana_program::program_pack::Pack;
+use spl_token::state::Account as SplTokenStateAccount;
 
 /// 从字节数组中读取 Pubkey
 #[inline]
@@ -51,6 +54,31 @@ pub fn is_nonce_account(data: &[u8]) -> bool {
 pub fn is_token_program_account(owner: &Pubkey) -> bool {
     owner.to_bytes() == spl_token::ID.to_bytes()
         || owner.to_bytes() == spl_token_2022::ID.to_bytes()
+}
+
+/// 由 `get_account` 得到的 owner / data / executable，判断「该地址」是否对应普通用户侧钱包语义，并返回应作为 **用户公钥** 使用的 [`Pubkey`]。
+///
+/// - **系统程序** + 空 data：返回 `Some(address)`（原生 SOL 钱包）。
+/// - **SPL Token / Token-2022** 账户：返回 `Some(token_owner)`。
+/// - 可执行程序账户或其它：返回 `None`。
+#[inline]
+pub fn user_wallet_pubkey_for_onchain_account(
+    address: &Pubkey,
+    owner: &Pubkey,
+    data: &[u8],
+    executable: bool,
+) -> Option<Pubkey> {
+    if executable {
+        return None;
+    }
+    if owner == &system_program::ID {
+        return if data.is_empty() { Some(*address) } else { None };
+    }
+    if is_token_program_account(owner) && data.len() == SplTokenStateAccount::LEN {
+        let ta = SplTokenStateAccount::unpack(data).ok()?;
+        return Some(Pubkey::new_from_array(ta.owner.to_bytes()));
+    }
+    None
 }
 
 /// 检查账户是否匹配指定的 discriminator

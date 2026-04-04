@@ -5,6 +5,8 @@
 //! - 事件类型过滤
 //! - 账户和交易过滤
 //! - 多协议支持（PumpFun, Bonk, Raydium等）
+//! - [`subscribe_builder`]：构造 Yellowstone `SubscribeRequest`（DEX 与 mentions 监控共用）
+//! - [`transaction_meta`]：原始 `Transaction` / `TransactionStatusMeta` 工具（转账分析等）
 
 pub mod buffers;
 pub mod client;
@@ -13,10 +15,23 @@ pub mod event_parser;
 pub mod filter;
 pub mod instruction_parser; // 增强的 instruction 解析器
 pub mod program_ids;
+pub mod geyser_connect;
+pub mod subscribe_builder;
+pub mod transaction_meta;
 pub mod types;
 
 // 重新导出主要API
 pub use client::YellowstoneGrpc;
+pub use geyser_connect::{connect_yellowstone_geyser, GeyserConnectConfig};
+pub use subscribe_builder::{
+    build_subscribe_request, build_subscribe_request_with_commitment,
+    build_subscribe_transaction_filters_named,
+};
+pub use transaction_meta::{
+    collect_account_keys_bs58, collect_watch_transfer_counterparty_pairs,
+    heuristic_sol_counterparties_for_watched_keys, lamport_balance_deltas,
+    spl_token_counterparty_by_owner, token_balance_raw_amount, try_yellowstone_signature,
+};
 pub use types::{
     account_filter_memcmp, AccountFilter, ClientConfig, EventType as StreamingEventType,
     EventTypeFilter, OrderMode, Protocol, SlotFilter, TransactionFilter,

@@ -44,3 +44,6 @@ pub use warmup::warmup_parser;
 pub use rpc_parser::{
     convert_rpc_to_grpc, parse_rpc_transaction, parse_transaction_from_rpc, ParseError,
 };
+
+// 账户 / RPC 工具（非 DEX 业务）
+pub use accounts::{rpc_resolve_user_wallet_pubkey, user_wallet_pubkey_for_onchain_account};

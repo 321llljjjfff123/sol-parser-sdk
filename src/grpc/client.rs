@@ -7,6 +7,8 @@
 //! - Ordered: 1-50ms 完全有序
 
 use super::buffers::{MicroBatchBuffer, SlotBuffer};
+use super::subscribe_builder::build_subscribe_request;
+use super::transaction_meta::try_yellowstone_signature;
 use super::types::*;
 use crate::core::{now_micros, EventMetadata}; // 导入高性能时钟
 use crate::instr::read_pubkey_fast;
@@ -427,59 +429,6 @@ fn get_timestamp_us() -> i64 {
     now_micros()
 }
 
-fn build_subscribe_request(
-    tx_filters: &[TransactionFilter],
-    acc_filters: &[AccountFilter],
-) -> SubscribeRequest {
-    let transactions = tx_filters
-        .iter()
-        .enumerate()
-        .map(|(i, f)| {
-            (
-                format!("tx_{}", i),
-                SubscribeRequestFilterTransactions {
-                    vote: Some(false),
-                    failed: Some(false),
-                    signature: None,
-                    account_include: f.account_include.clone(),
-                    account_exclude: f.account_exclude.clone(),
-                    account_required: f.account_required.clone(),
-                },
-            )
-        })
-        .collect();
-
-    let accounts = acc_filters
-        .iter()
-        .enumerate()
-        .map(|(i, f)| {
-            (
-                format!("acc_{}", i),
-                SubscribeRequestFilterAccounts {
-                    account: f.account.clone(),
-                    owner: f.owner.clone(),
-                    filters: f.filters.clone(),
-                    nonempty_txn_signature: None,
-                },
-            )
-        })
-        .collect();
-
-    SubscribeRequest {
-        slots: HashMap::new(),
-        accounts,
-        transactions,
-        transactions_status: HashMap::new(),
-        blocks: HashMap::new(),
-        blocks_meta: HashMap::new(),
-        entry: HashMap::new(),
-        commitment: Some(CommitmentLevel::Processed as i32),
-        accounts_data_slice: Vec::new(),
-        ping: None,
-        from_slot: None,
-    }
-}
-
 // ==================== 交易解析 ====================
 
 #[inline]
@@ -533,9 +482,7 @@ fn parse_transaction_core(
 
 #[inline(always)]
 fn extract_signature(bytes: &[u8]) -> solana_sdk::signature::Signature {
-    let mut arr = [0u8; 64];
-    arr.copy_from_slice(bytes);
-    solana_sdk::signature::Signature::from(arr)
+    try_yellowstone_signature(bytes).expect("yellowstone signature must be 64 bytes")
 }
 
 #[inline]
