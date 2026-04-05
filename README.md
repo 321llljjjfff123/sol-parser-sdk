@@ -136,35 +136,35 @@ cargo run --example pumpswap_ordered --release
 
 ### Examples
 
-| Description | Run Command | Source Code |
+| Run Command | Description | Source Code |
 |-------------|-------------|-------------|
 | **PumpFun** | | |
-| PumpFun event parsing with detailed performance metrics | `cargo run --example pumpfun_with_metrics --release` | [examples/pumpfun_with_metrics.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_with_metrics.rs) |
-| PumpFun trade type filtering (Buy/Sell/BuyExactSolIn), Unordered mode | `cargo run --example pumpfun_trade_filter --release` | [examples/pumpfun_trade_filter.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_trade_filter.rs) |
-| PumpFun trade filtering with StreamingOrdered mode | `cargo run --example pumpfun_trade_filter_ordered --release` | [examples/pumpfun_trade_filter_ordered.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_trade_filter_ordered.rs) |
-| Quick PumpFun connection test (first 10 events) | `cargo run --example pumpfun_quick_test --release` | [examples/pumpfun_quick_test.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_quick_test.rs) |
-| Parse a PumpFun transaction from RPC by signature | `TX_SIGNATURE=<sig> cargo run --example parse_pump_tx --release` | [examples/parse_pump_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_pump_tx.rs) |
-| Debug PumpFun transaction structure and inner instructions | `cargo run --example debug_pump_tx --release` | [examples/debug_pump_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/debug_pump_tx.rs) |
+| `cargo run --example pumpfun_with_metrics --release` | PumpFun event parsing with detailed performance metrics | [examples/pumpfun_with_metrics.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_with_metrics.rs) |
+| `cargo run --example pumpfun_trade_filter --release` | PumpFun trade type filtering (Buy/Sell/BuyExactSolIn), Unordered mode | [examples/pumpfun_trade_filter.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_trade_filter.rs) |
+| `cargo run --example pumpfun_trade_filter_ordered --release` | PumpFun trade filtering with StreamingOrdered mode | [examples/pumpfun_trade_filter_ordered.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_trade_filter_ordered.rs) |
+| `cargo run --example pumpfun_quick_test --release` | Quick PumpFun connection test (first 10 events) | [examples/pumpfun_quick_test.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpfun_quick_test.rs) |
+| `TX_SIGNATURE=<sig> cargo run --example parse_pump_tx --release` | Parse a PumpFun transaction from RPC by signature | [examples/parse_pump_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_pump_tx.rs) |
+| `cargo run --example debug_pump_tx --release` | Debug PumpFun transaction structure and inner instructions | [examples/debug_pump_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/debug_pump_tx.rs) |
 | **PumpSwap** | | |
-| PumpSwap events with per-event and 10s performance stats | `cargo run --example pumpswap_with_metrics --release` | [examples/pumpswap_with_metrics.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_with_metrics.rs) |
-| PumpSwap ultra-low latency (Unordered, full event data) | `cargo run --example pumpswap_low_latency --release` | [examples/pumpswap_low_latency.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_low_latency.rs) |
-| PumpSwap Buy/Sell/CreatePool with MicroBatch ordering | `cargo run --example pumpswap_ordered --release` | [examples/pumpswap_ordered.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_ordered.rs) |
-| Parse a PumpSwap transaction from RPC by signature | `TX_SIGNATURE=<sig> cargo run --example parse_pumpswap_tx --release` | [examples/parse_pumpswap_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_pumpswap_tx.rs) |
-| Debug PumpSwap transaction and gRPC conversion | `cargo run --example debug_pumpswap_tx --release` | [examples/debug_pumpswap_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/debug_pumpswap_tx.rs) |
+| `cargo run --example pumpswap_with_metrics --release` | PumpSwap events with per-event and 10s performance stats | [examples/pumpswap_with_metrics.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_with_metrics.rs) |
+| `cargo run --example pumpswap_low_latency --release` | PumpSwap ultra-low latency (Unordered, full event data) | [examples/pumpswap_low_latency.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_low_latency.rs) |
+| `cargo run --example pumpswap_ordered --release` | PumpSwap Buy/Sell/CreatePool with MicroBatch ordering | [examples/pumpswap_ordered.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_ordered.rs) |
+| `TX_SIGNATURE=<sig> cargo run --example parse_pumpswap_tx --release` | Parse a PumpSwap transaction from RPC by signature | [examples/parse_pumpswap_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_pumpswap_tx.rs) |
+| `cargo run --example debug_pumpswap_tx --release` | Debug PumpSwap transaction and gRPC conversion | [examples/debug_pumpswap_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/debug_pumpswap_tx.rs) |
 | **Meteora DAMM** | | |
-| Meteora DAMM V2 gRPC (Swap/AddLiquidity/RemoveLiquidity/CreatePosition/ClosePosition) | `cargo run --example meteora_damm_grpc --release` | [examples/meteora_damm_grpc.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_grpc.rs) |
-| Parse a Meteora DAMM transaction from RPC by signature | `TX_SIGNATURE=<sig> cargo run --example parse_meteora_damm_tx --release` | [examples/parse_meteora_damm_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_meteora_damm_tx.rs) |
+| `cargo run --example meteora_damm_grpc --release` | Meteora DAMM V2 gRPC (Swap/AddLiquidity/RemoveLiquidity/CreatePosition/ClosePosition) | [examples/meteora_damm_grpc.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/meteora_damm_grpc.rs) |
+| `TX_SIGNATURE=<sig> cargo run --example parse_meteora_damm_tx --release` | Parse a Meteora DAMM transaction from RPC by signature | [examples/parse_meteora_damm_tx.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/parse_meteora_damm_tx.rs) |
 | **Account subscription** | | |
-| Subscribe to a single token account balance updates | `TOKEN_ACCOUNT=<pubkey> cargo run --example token_balance_listen --release` | [examples/token_balance_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_balance_listen.rs) |
-| Subscribe to a nonce account state changes | `NONCE_ACCOUNT=<pubkey> cargo run --example nonce_listen --release` | [examples/nonce_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/nonce_listen.rs) |
-| Subscribe to a mint account (TokenInfo: decimals/supply) | `MINT_ACCOUNT=<pubkey> cargo run --example token_decimals_listen --release` | [examples/token_decimals_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_decimals_listen.rs) |
-| Subscribe to PumpSwap pool accounts via memcmp (e.g. mint at offset 32) | `cargo run --example pumpswap_pool_account_listen --release` | [examples/pumpswap_pool_account_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_pool_account_listen.rs) |
-| Subscribe to all ATAs for one or more mints (memcmp offset 0) | `cargo run --example mint_all_ata_account_listen --release` | [examples/mint_all_ata_account_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/mint_all_ata_account_listen.rs) |
+| `TOKEN_ACCOUNT=<pubkey> cargo run --example token_balance_listen --release` | Subscribe to a single token account balance updates | [examples/token_balance_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_balance_listen.rs) |
+| `NONCE_ACCOUNT=<pubkey> cargo run --example nonce_listen --release` | Subscribe to a nonce account state changes | [examples/nonce_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/nonce_listen.rs) |
+| `MINT_ACCOUNT=<pubkey> cargo run --example token_decimals_listen --release` | Subscribe to a mint account (TokenInfo: decimals/supply) | [examples/token_decimals_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/token_decimals_listen.rs) |
+| `cargo run --example pumpswap_pool_account_listen --release` | Subscribe to PumpSwap pool accounts via memcmp (e.g. mint at offset 32) | [examples/pumpswap_pool_account_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/pumpswap_pool_account_listen.rs) |
+| `cargo run --example mint_all_ata_account_listen --release` | Subscribe to all ATAs for one or more mints (memcmp offset 0) | [examples/mint_all_ata_account_listen.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/mint_all_ata_account_listen.rs) |
 | **ShredStream** | | |
-| Jito ShredStream ultra-low latency subscription (50-100ms faster than gRPC) | `cargo run --example shredstream_example --release` | [examples/shredstream_example.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/shredstream_example.rs) |
+| `cargo run --example shredstream_example --release` | Jito ShredStream ultra-low latency subscription (50-100ms faster than gRPC) | [examples/shredstream_example.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/shredstream_example.rs) |
 | **Utility** | | |
-| `dynamic_subscription` | Update transaction/account filters at runtime without reconnecting | `cargo run --example dynamic_subscription --release` |
-| `test_account_filling` | Debug account filling for PumpSwap (RPC + account resolution) | `cargo run --example test_account_filling --release` |
+| `cargo run --example dynamic_subscription --release` | Update transaction/account filters at runtime without reconnecting | [examples/dynamic_subscription.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/dynamic_subscription.rs) |
+| `cargo run --example test_account_filling --release` | Debug account filling for PumpSwap (RPC + account resolution) | [examples/test_account_filling.rs](https://github.com/0xfnzero/sol-parser-sdk/blob/main/examples/test_account_filling.rs) |
 
 ### Basic Usage
 
