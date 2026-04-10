@@ -223,11 +223,13 @@ fn parse_create_instruction(
         String::new()
     };
 
+    // 读取 creator (在 name, symbol, uri 之后)
     let creator = if offset + 32 <= data.len() {
         read_pubkey(data, offset).unwrap_or_default()
     } else {
         Pubkey::default()
     };
+    offset += 32;
 
     let mint = get_account(accounts, 0)?;
     let metadata =
@@ -287,11 +289,14 @@ fn parse_create_v2_instruction(
     } else {
         String::new()
     };
+
+    // 读取 creator (在 name, symbol, uri 之后)
     let creator = if offset + 32 <= data.len() {
         read_pubkey(data, offset).unwrap_or_default()
     } else {
         Pubkey::default()
     };
+    offset += 32;
 
     let mint = acc[0];
     let metadata =
