@@ -320,7 +320,7 @@ pub fn convert_rpc_to_grpc(
         },
         return_data: None,
         compute_units_consumed: rpc_meta.compute_units_consumed.clone().into(),
-        cost_units: None,
+
         inner_instructions_none: {
             let opt: Option<Vec<_>> = rpc_meta.inner_instructions.clone().into();
             opt.is_none()

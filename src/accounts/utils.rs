@@ -3,7 +3,7 @@
 //! 提供账户数据解析的通用工具函数
 
 use solana_sdk::pubkey::Pubkey;
-use solana_system_interface::program as system_program;
+use solana_sdk::system_program;
 use spl_token::solana_program::program_pack::Pack;
 use spl_token::state::Account as SplTokenStateAccount;
 
@@ -71,7 +71,7 @@ pub fn user_wallet_pubkey_for_onchain_account(
     if executable {
         return None;
     }
-    if owner == &system_program::ID {
+    if owner == &system_program::id() {
         return if data.is_empty() { Some(*address) } else { None };
     }
     if is_token_program_account(owner) && data.len() == SplTokenStateAccount::LEN {

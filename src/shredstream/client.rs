@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crossbeam_queue::ArrayQueue;
 use futures::StreamExt;
 use solana_entry::entry::Entry as SolanaEntry;
+use solana_sdk::pubkey::Pubkey;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
@@ -12,6 +13,25 @@ use crate::core::now_micros;
 use crate::shredstream::config::ShredStreamConfig;
 use crate::shredstream::proto::{Entry, ShredstreamProxyClient, SubscribeEntriesRequest};
 use crate::DexEvent;
+
+// IxRef 类型定义 - 用于包装指令数据
+// 避免直接导入 CompiledInstruction 以解决版本冲突
+#[derive(Debug, Clone)]
+struct IxRef {
+    program_id_index: u8,
+    accounts: Vec<u8>,
+    data: Vec<u8>,
+}
+
+impl IxRef {
+    fn new(program_id_index: u8, accounts: Vec<u8>, data: Vec<u8>) -> Self {
+        Self {
+            program_id_index,
+            accounts,
+            data,
+        }
+    }
+}
 
 /// ShredStream 客户端
 #[derive(Clone)]
@@ -156,19 +176,16 @@ impl ShredStreamClient {
         let signature = transaction.signatures[0];
         let accounts: Vec<_> = transaction.message.static_account_keys().to_vec();
 
-        // 获取日志（ShredStream 不提供日志，需要通过其他方式获取）
-        let logs: Vec<String> = vec![];
-
-        // 使用统一解析器解析交易
-        let events = crate::core::parse_transaction_events(
-            &[], // ShredStream 不提供指令数据
+        // 解析交易中的指令
+        let mut events = Vec::new();
+        Self::parse_transaction_instructions(
+            transaction,
             &accounts,
-            &logs,
             signature,
             slot,
             tx_index,
-            None, // ShredStream 不提供 block_time
-            &solana_sdk::pubkey::Pubkey::default(),
+            recv_us,
+            &mut events,
         );
 
         // 推送到队列
@@ -179,5 +196,553 @@ impl ShredStreamClient {
             }
             let _ = queue.push(event);
         }
+    }
+
+    /// 解析交易指令，提取 PumpFun 事件
+    #[inline]
+    fn parse_transaction_instructions(
+        transaction: &solana_sdk::transaction::VersionedTransaction,
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+        events: &mut Vec<DexEvent>,
+    ) {
+        use solana_sdk::message::VersionedMessage;
+
+        let message = &transaction.message;
+
+        // 获取所有指令
+        let instructions: Vec<IxRef> = match message {
+            VersionedMessage::Legacy(msg) => {
+                msg.instructions.iter().map(|ix| IxRef::new(ix.program_id_index, ix.accounts.clone(), ix.data.clone())).collect()
+            }
+            VersionedMessage::V0(msg) => {
+                msg.instructions.iter().map(|ix| IxRef::new(ix.program_id_index, ix.accounts.clone(), ix.data.clone())).collect()
+            }
+        };
+
+        // 检测是否包含 CREATE/CREATE_V2 指令（用于标记 is_created_buy）
+        let has_create = Self::detect_pumpfun_create_instruction(&instructions, accounts);
+
+        // 解析每个指令
+        for ix in &instructions {
+            let program_id = accounts.get(ix.program_id_index as usize);
+
+            // 只处理 PumpFun 指令
+            if let Some(program_id) = program_id {
+                if *program_id == crate::instr::pump::PROGRAM_ID_PUBKEY {
+                    if let Some(event) = Self::parse_pumpfun_instruction(
+                        &ix.data,
+                        accounts,
+                        &ix.accounts,
+                        signature,
+                        slot,
+                        tx_index,
+                        recv_us,
+                        has_create,
+                    ) {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+    }
+
+    /// 检测交易中是否包含 PumpFun CREATE/CREATE_V2 指令
+    #[inline]
+    fn detect_pumpfun_create_instruction(
+        instructions: &[IxRef],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+    ) -> bool {
+        use crate::instr::pump::discriminators;
+
+        for ix in instructions {
+            if let Some(program_id) = accounts.get(ix.program_id_index as usize) {
+                if *program_id == crate::instr::pump::PROGRAM_ID_PUBKEY {
+                    if ix.data.len() >= 8 {
+                        let disc: [u8; 8] = ix.data[0..8].try_into().unwrap_or_default();
+                        if disc == discriminators::CREATE || disc == discriminators::CREATE_V2 {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// 解析单个 PumpFun 指令
+    #[inline]
+    fn parse_pumpfun_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+        has_create: bool,
+    ) -> Option<DexEvent> {
+        use crate::instr::pump::discriminators;
+        use crate::instr::utils::*;
+
+        if data.len() < 8 {
+            return None;
+        }
+
+        let disc: [u8; 8] = data[0..8].try_into().ok()?;
+        let ix_data = &data[8..];
+
+        // 获取指令中的账户
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        match disc {
+            // CREATE 指令
+            d if d == discriminators::CREATE => {
+                Self::parse_create_instruction(data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
+            }
+            // CREATE_V2 指令
+            d if d == discriminators::CREATE_V2 => {
+                Self::parse_create_v2_instruction(data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
+            }
+            // BUY 指令
+            d if d == discriminators::BUY => {
+                Self::parse_buy_instruction(
+                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, has_create,
+                )
+            }
+            // SELL 指令
+            d if d == discriminators::SELL => {
+                Self::parse_sell_instruction(ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
+            }
+            // BUY_EXACT_SOL_IN 指令
+            d if d == discriminators::BUY_EXACT_SOL_IN => {
+                Self::parse_buy_exact_sol_in_instruction(
+                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, has_create,
+                )
+            }
+            _ => None,
+        }
+    }
+
+    /// 解析 CREATE 指令
+    ///
+    /// CREATE 指令账户映射 (from IDL):
+    /// 0: mint, 1: mint_authority, 2: bonding_curve, 3: associated_bonding_curve,
+    /// 4: global, 5: mpl_token_metadata, 6: metadata, 7: user, ...
+    #[inline]
+    fn parse_create_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+    ) -> Option<DexEvent> {
+        use crate::instr::utils::*;
+        use crate::core::events::*;
+
+        // CREATE 指令至少需要 8 个账户
+        if ix_accounts.len() < 8 {
+            return None;
+        }
+
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        let mut offset = 8; // 跳过 discriminator
+
+        // 解析 name (string)
+        let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 解析 symbol (string)
+        let symbol = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 解析 uri (string)
+        let uri = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 从指令数据中读取 creator（在 name, symbol, uri 之后）
+        let creator = if offset + 32 <= data.len() {
+            read_pubkey(data, offset).unwrap_or_default()
+        } else {
+            solana_sdk::pubkey::Pubkey::default()
+        };
+
+        // 从账户中读取 mint, bonding_curve, user
+        let mint = get_account(0)?;
+        let bonding_curve = get_account(2).unwrap_or_default();
+        let user = get_account(7).unwrap_or_default();
+
+        let metadata = EventMetadata {
+            signature,
+            slot,
+            tx_index,
+            block_time_us: 0, // ShredStream 不提供 block_time
+            grpc_recv_us: recv_us,
+            recent_blockhash: None,
+        };
+
+        Some(DexEvent::PumpFunCreate(PumpFunCreateTokenEvent {
+            metadata,
+            name,
+            symbol,
+            uri,
+            mint,
+            bonding_curve,
+            user,
+            creator,
+            ..Default::default()
+        }))
+    }
+
+    /// 解析 CREATE_V2 指令
+    ///
+    /// CREATE_V2 指令账户映射 (from IDL):
+    /// 0: mint, 1: mint_authority, 2: bonding_curve, 3: associated_bonding_curve,
+    /// 4: global, 5: user, 6: system_program, 7: token_program, ...
+    #[inline]
+    fn parse_create_v2_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+    ) -> Option<DexEvent> {
+        use crate::instr::utils::*;
+        use crate::core::events::*;
+
+        const CREATE_V2_MIN_ACCOUNTS: usize = 16;
+        if ix_accounts.len() < CREATE_V2_MIN_ACCOUNTS {
+            return None;
+        }
+
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        let mut offset = 8; // 跳过 discriminator
+
+        // 解析 name (string)
+        let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 解析 symbol (string)
+        let symbol = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 解析 uri (string)
+        let uri = if let Some((s, len)) = read_str_unchecked(data, offset) {
+            offset += len;
+            s.to_string()
+        } else {
+            String::new()
+        };
+
+        // 从指令数据中读取 creator（在 name, symbol, uri 之后）
+        let creator = if offset + 32 <= data.len() {
+            read_pubkey(data, offset).unwrap_or_default()
+        } else {
+            solana_sdk::pubkey::Pubkey::default()
+        };
+
+        // 从账户中读取 mint, bonding_curve, user
+        let mint = get_account(0)?;
+        let bonding_curve = get_account(2).unwrap_or_default();
+        let user = get_account(5).unwrap_or_default();
+
+        let metadata = EventMetadata {
+            signature,
+            slot,
+            tx_index,
+            block_time_us: 0,
+            grpc_recv_us: recv_us,
+            recent_blockhash: None,
+        };
+
+        Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
+            metadata,
+            name,
+            symbol,
+            uri,
+            mint,
+            bonding_curve,
+            user,
+            creator,
+            mint_authority: get_account(1).unwrap_or_default(),
+            associated_bonding_curve: get_account(3).unwrap_or_default(),
+            global: get_account(4).unwrap_or_default(),
+            system_program: get_account(6).unwrap_or_default(),
+            token_program: get_account(7).unwrap_or_default(),
+            associated_token_program: get_account(8).unwrap_or_default(),
+            mayhem_program_id: get_account(9).unwrap_or_default(),
+            global_params: get_account(10).unwrap_or_default(),
+            sol_vault: get_account(11).unwrap_or_default(),
+            mayhem_state: get_account(12).unwrap_or_default(),
+            mayhem_token_vault: get_account(13).unwrap_or_default(),
+            event_authority: get_account(14).unwrap_or_default(),
+            program: get_account(15).unwrap_or_default(),
+            ..Default::default()
+        }))
+    }
+
+    /// 解析 BUY 指令
+    #[inline]
+    fn parse_buy_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+        has_create: bool,
+    ) -> Option<DexEvent> {
+        use crate::instr::utils::*;
+        use crate::core::events::*;
+
+        if ix_accounts.len() < 7 {
+            return None;
+        }
+
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        // 解析参数: amount (u64), max_sol_cost (u64)
+        let (token_amount, sol_amount) = if data.len() >= 16 {
+            (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+        } else {
+            (0, 0)
+        };
+
+        let mint = get_account(2)?;
+        let metadata = EventMetadata {
+            signature,
+            slot,
+            tx_index,
+            block_time_us: 0,
+            grpc_recv_us: recv_us,
+            recent_blockhash: None,
+        };
+
+        Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+            metadata,
+            mint,
+            bonding_curve: get_account(3).unwrap_or_default(),
+            user: get_account(6).unwrap_or_default(),
+            sol_amount,
+            token_amount,
+            fee_recipient: get_account(1).unwrap_or_default(),
+            is_buy: true,
+            is_created_buy: has_create,
+            timestamp: 0,
+            virtual_sol_reserves: 0,
+            virtual_token_reserves: 0,
+            real_sol_reserves: 0,
+            real_token_reserves: 0,
+            fee_basis_points: 0,
+            fee: 0,
+            creator: Pubkey::default(),
+            creator_fee_basis_points: 0,
+            creator_fee: 0,
+            track_volume: false,
+            total_unclaimed_tokens: 0,
+            total_claimed_tokens: 0,
+            current_sol_volume: 0,
+            last_update_timestamp: 0,
+            ix_name: "buy".to_string(),
+            mayhem_mode: false,
+            cashback_fee_basis_points: 0,
+            cashback: 0,
+            is_cashback_coin: false,
+            associated_bonding_curve: Pubkey::default(),
+            token_program: Pubkey::default(),
+            creator_vault: Pubkey::default(),
+            account: None,
+        }))
+    }
+
+    /// 解析 SELL 指令
+    #[inline]
+    fn parse_sell_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+    ) -> Option<DexEvent> {
+        use crate::instr::utils::*;
+        use crate::core::events::*;
+
+        if ix_accounts.len() < 7 {
+            return None;
+        }
+
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        // 解析参数: amount (u64), min_sol_output (u64)
+        let (token_amount, sol_amount) = if data.len() >= 16 {
+            (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+        } else {
+            (0, 0)
+        };
+
+        let mint = get_account(2)?;
+        let metadata = EventMetadata {
+            signature,
+            slot,
+            tx_index,
+            block_time_us: 0,
+            grpc_recv_us: recv_us,
+            recent_blockhash: None,
+        };
+
+        Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+            metadata,
+            mint,
+            bonding_curve: get_account(3).unwrap_or_default(),
+            user: get_account(6).unwrap_or_default(),
+            sol_amount,
+            token_amount,
+            fee_recipient: get_account(1).unwrap_or_default(),
+            is_buy: false,
+            is_created_buy: false,
+            timestamp: 0,
+            virtual_sol_reserves: 0,
+            virtual_token_reserves: 0,
+            real_sol_reserves: 0,
+            real_token_reserves: 0,
+            fee_basis_points: 0,
+            fee: 0,
+            creator: Pubkey::default(),
+            creator_fee_basis_points: 0,
+            creator_fee: 0,
+            track_volume: false,
+            total_unclaimed_tokens: 0,
+            total_claimed_tokens: 0,
+            current_sol_volume: 0,
+            last_update_timestamp: 0,
+            ix_name: "sell".to_string(),
+            mayhem_mode: false,
+            cashback_fee_basis_points: 0,
+            cashback: 0,
+            is_cashback_coin: false,
+            associated_bonding_curve: Pubkey::default(),
+            token_program: Pubkey::default(),
+            creator_vault: Pubkey::default(),
+            account: None,
+        }))
+    }
+
+    /// 解析 BUY_EXACT_SOL_IN 指令
+    #[inline]
+    fn parse_buy_exact_sol_in_instruction(
+        data: &[u8],
+        accounts: &[solana_sdk::pubkey::Pubkey],
+        ix_accounts: &[u8],
+        signature: solana_sdk::signature::Signature,
+        slot: u64,
+        tx_index: u64,
+        recv_us: i64,
+        has_create: bool,
+    ) -> Option<DexEvent> {
+        use crate::instr::utils::*;
+        use crate::core::events::*;
+
+        if ix_accounts.len() < 7 {
+            return None;
+        }
+
+        let get_account = |idx: usize| -> Option<solana_sdk::pubkey::Pubkey> {
+            ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+        };
+
+        // 解析参数: spendable_sol_in (u64), min_tokens_out (u64)
+        let (sol_amount, token_amount) = if data.len() >= 16 {
+            (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+        } else {
+            (0, 0)
+        };
+
+        let mint = get_account(2)?;
+        let metadata = EventMetadata {
+            signature,
+            slot,
+            tx_index,
+            block_time_us: 0,
+            grpc_recv_us: recv_us,
+            recent_blockhash: None,
+        };
+
+        Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+            metadata,
+            mint,
+            bonding_curve: get_account(3).unwrap_or_default(),
+            user: get_account(6).unwrap_or_default(),
+            sol_amount,
+            token_amount,
+            fee_recipient: get_account(1).unwrap_or_default(),
+            is_buy: true,
+            is_created_buy: has_create,
+            timestamp: 0,
+            virtual_sol_reserves: 0,
+            virtual_token_reserves: 0,
+            real_sol_reserves: 0,
+            real_token_reserves: 0,
+            fee_basis_points: 0,
+            fee: 0,
+            creator: Pubkey::default(),
+            creator_fee_basis_points: 0,
+            creator_fee: 0,
+            track_volume: false,
+            total_unclaimed_tokens: 0,
+            total_claimed_tokens: 0,
+            current_sol_volume: 0,
+            last_update_timestamp: 0,
+            ix_name: "buy_exact_sol_in".to_string(),
+            mayhem_mode: false,
+            cashback_fee_basis_points: 0,
+            cashback: 0,
+            is_cashback_coin: false,
+            associated_bonding_curve: Pubkey::default(),
+            token_program: Pubkey::default(),
+            creator_vault: Pubkey::default(),
+            account: None,
+        }))
     }
 }

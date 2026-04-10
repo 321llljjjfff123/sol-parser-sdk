@@ -223,15 +223,23 @@ fn parse_create_instruction(
         String::new()
     };
 
-    // 读取 creator (在 name, symbol, uri 之后)
-    let creator = if offset + 32 <= data.len() {
-        read_pubkey(data, offset).unwrap_or_default()
-    } else {
-        Pubkey::default()
-    };
+    // 读取 mint, bonding_curve, user, creator (在 name, symbol, uri 之后)
+    if data.len() < offset + 32 + 32 + 32 + 32 {
+        return None;
+    }
+
+    let mint = read_pubkey(data, offset).unwrap_or_default();
     offset += 32;
 
-    let mint = get_account(accounts, 0)?;
+    let bonding_curve = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
+    let user = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
+    let creator = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
@@ -241,8 +249,8 @@ fn parse_create_instruction(
         symbol,
         uri,
         mint,
-        bonding_curve: get_account(accounts, 2).unwrap_or_default(),
-        user: get_account(accounts, 7).unwrap_or_default(),
+        bonding_curve,
+        user,
         creator,
         ..Default::default()
     }))
@@ -290,15 +298,23 @@ fn parse_create_v2_instruction(
         String::new()
     };
 
-    // 读取 creator (在 name, symbol, uri 之后)
-    let creator = if offset + 32 <= data.len() {
-        read_pubkey(data, offset).unwrap_or_default()
-    } else {
-        Pubkey::default()
-    };
+    // 读取 mint, bonding_curve, user, creator (在 name, symbol, uri 之后)
+    if data.len() < offset + 32 + 32 + 32 + 32 {
+        return None;
+    }
+
+    let mint = read_pubkey(data, offset).unwrap_or_default();
     offset += 32;
 
-    let mint = acc[0];
+    let bonding_curve = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
+    let user = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
+    let creator = read_pubkey(data, offset).unwrap_or_default();
+    offset += 32;
+
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
@@ -308,8 +324,8 @@ fn parse_create_v2_instruction(
         symbol,
         uri,
         mint,
-        bonding_curve: acc[2],
-        user: acc[5],
+        bonding_curve,
+        user,
         creator,
         mint_authority: acc[1],
         associated_bonding_curve: acc[3],
