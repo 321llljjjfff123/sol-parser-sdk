@@ -334,6 +334,7 @@ pub fn convert_rpc_to_grpc(
                 rpc_meta.return_data.clone().into();
             opt.is_none()
         },
+        cost_units: rpc_meta.compute_units_consumed.clone().into(),
     };
 
     // Convert inner instructions

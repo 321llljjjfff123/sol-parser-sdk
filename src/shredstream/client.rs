@@ -10,10 +10,22 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+use crate::accounts::program_ids::SPL_TOKEN_2022_PROGRAM_ID;
 use crate::core::now_micros;
 use crate::shredstream::config::ShredStreamConfig;
 use crate::shredstream::proto::{Entry, ShredstreamProxyClient, SubscribeEntriesRequest};
 use crate::DexEvent;
+
+/// 获取 token_program，如果为 default 则返回 Token-2022 Program
+/// 默认使用 Token-2022 更安全，因为 Token-2022 兼容 Token 账户，反之则不行
+#[inline]
+fn get_token_program_or_default(token_program: Pubkey) -> Pubkey {
+    if token_program == Pubkey::default() {
+        SPL_TOKEN_2022_PROGRAM_ID
+    } else {
+        token_program
+    }
+}
 
 // IxRef 类型定义 - 用于包装指令数据
 // 避免直接导入 CompiledInstruction 以解决版本冲突
@@ -224,8 +236,8 @@ impl ShredStreamClient {
             }
         };
 
-        // 检测 CREATE/CREATE_V2 指令创建的 mint 地址（用于精确判断 is_created_buy）
-        let created_mints = Self::detect_pumpfun_create_mints(&instructions, accounts);
+        // 检测 CREATE/CREATE_V2 指令创建的 mint 地址（用于精确判断 is_created_buy 和 mayhem_mode）
+        let (created_mints, mayhem_mints) = Self::detect_pumpfun_create_mints(&instructions, accounts);
 
         // 解析每个指令
         for ix in &instructions {
@@ -243,6 +255,7 @@ impl ShredStreamClient {
                         tx_index,
                         recv_us,
                         &created_mints,
+                        &mayhem_mints,
                     ) {
                         events.push(event);
                     }
@@ -252,15 +265,22 @@ impl ShredStreamClient {
     }
 
     /// 检测交易中 PumpFun CREATE/CREATE_V2 指令创建的 mint 地址
-    /// 返回所有创建的 mint 地址集合（用于精确判断 is_created_buy）
+    /// 返回 (created_mints, mayhem_mints) 元组：
+    /// - created_mints: 所有创建的 mint 地址集合（用于精确判断 is_created_buy）
+    /// - mayhem_mints: Mayhem Mode 代币的 mint 地址集合
+    ///
+    /// Mayhem Mode 判断方式：
+    /// - CREATE_V2 指令中 mayhem_program_id（账户索引 9）不为默认值时，是 Mayhem Mode
+    /// - CREATE 指令创建的代币不是 Mayhem Mode
     #[inline]
     fn detect_pumpfun_create_mints(
         instructions: &[IxRef],
         accounts: &[Pubkey],
-    ) -> HashSet<Pubkey> {
+    ) -> (HashSet<Pubkey>, HashSet<Pubkey>) {
         use crate::instr::pump::discriminators;
 
         let mut created_mints = HashSet::new();
+        let mut mayhem_mints = HashSet::new();
 
         for ix in instructions {
             if let Some(program_id) = accounts.get(ix.program_id_index as usize) {
@@ -272,6 +292,18 @@ impl ShredStreamClient {
                             if let Some(&mint_idx) = ix.accounts.get(0) {
                                 if let Some(&mint) = accounts.get(mint_idx as usize) {
                                     created_mints.insert(mint);
+
+                                    // CREATE_V2: 检查 mayhem_program_id（账户索引 9）判断是否是 Mayhem Mode
+                                    if disc == discriminators::CREATE_V2 {
+                                        if let Some(&mayhem_program_idx) = ix.accounts.get(9) {
+                                            if let Some(&mayhem_program_id) = accounts.get(mayhem_program_idx as usize) {
+                                                // mayhem_program_id 不为默认值时，是 Mayhem Mode
+                                                if mayhem_program_id != Pubkey::default() {
+                                                    mayhem_mints.insert(mint);
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -279,7 +311,7 @@ impl ShredStreamClient {
                 }
             }
         }
-        created_mints
+        (created_mints, mayhem_mints)
     }
 
     /// 解析单个 PumpFun 指令
@@ -293,6 +325,7 @@ impl ShredStreamClient {
         tx_index: u64,
         recv_us: i64,
         created_mints: &HashSet<Pubkey>,
+        mayhem_mints: &HashSet<Pubkey>,
     ) -> Option<DexEvent> {
         use crate::instr::pump::discriminators;
         use crate::instr::utils::*;
@@ -321,7 +354,7 @@ impl ShredStreamClient {
             // BUY 指令
             d if d == discriminators::BUY => {
                 Self::parse_buy_instruction(
-                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, created_mints,
+                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, created_mints, mayhem_mints,
                 )
             }
             // SELL 指令
@@ -331,7 +364,7 @@ impl ShredStreamClient {
             // BUY_EXACT_SOL_IN 指令
             d if d == discriminators::BUY_EXACT_SOL_IN => {
                 Self::parse_buy_exact_sol_in_instruction(
-                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, created_mints,
+                    ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us, created_mints, mayhem_mints,
                 )
             }
             _ => None,
@@ -356,8 +389,8 @@ impl ShredStreamClient {
         use crate::instr::utils::*;
         use crate::core::events::*;
 
-        // CREATE 指令至少需要 8 个账户
-        if ix_accounts.len() < 8 {
+        // CREATE 指令至少需要 10 个账户（0..9 含 token_program）
+        if ix_accounts.len() < 10 {
             return None;
         }
 
@@ -421,6 +454,7 @@ impl ShredStreamClient {
             bonding_curve,
             user,
             creator,
+            token_program: get_account(9).unwrap_or_default(),
             ..Default::default()
         }))
     }
@@ -499,6 +533,10 @@ impl ShredStreamClient {
             recent_blockhash: None,
         };
 
+        // 检测是否是 Mayhem Mode：mayhem_program_id（账户索引 9）不为默认值
+        let mayhem_program_id = get_account(9).unwrap_or_default();
+        let is_mayhem_mode = mayhem_program_id != Pubkey::default();
+
         Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
             metadata,
             name,
@@ -514,13 +552,14 @@ impl ShredStreamClient {
             system_program: get_account(6).unwrap_or_default(),
             token_program: get_account(7).unwrap_or_default(),
             associated_token_program: get_account(8).unwrap_or_default(),
-            mayhem_program_id: get_account(9).unwrap_or_default(),
+            mayhem_program_id,
             global_params: get_account(10).unwrap_or_default(),
             sol_vault: get_account(11).unwrap_or_default(),
             mayhem_state: get_account(12).unwrap_or_default(),
             mayhem_token_vault: get_account(13).unwrap_or_default(),
             event_authority: get_account(14).unwrap_or_default(),
             program: get_account(15).unwrap_or_default(),
+            is_mayhem_mode,
             ..Default::default()
         }))
     }
@@ -536,6 +575,7 @@ impl ShredStreamClient {
         tx_index: u64,
         recv_us: i64,
         created_mints: &HashSet<Pubkey>,
+        mayhem_mints: &HashSet<Pubkey>,
     ) -> Option<DexEvent> {
         use crate::instr::utils::*;
         use crate::core::events::*;
@@ -559,6 +599,9 @@ impl ShredStreamClient {
         
         // 🔧 关键修复：只有当 mint 在 created_mints 中时，才标记为 is_created_buy
         let is_created_buy = created_mints.contains(&mint);
+        
+        // 🔧 Mayhem Mode 检测：CREATE_V2 指令创建的代币是 Mayhem Mode
+        let is_mayhem_mode = mayhem_mints.contains(&mint);
         
         let metadata = EventMetadata {
             signature,
@@ -595,13 +638,13 @@ impl ShredStreamClient {
             current_sol_volume: 0,
             last_update_timestamp: 0,
             ix_name: "buy".to_string(),
-            mayhem_mode: false,
+            mayhem_mode: is_mayhem_mode,
             cashback_fee_basis_points: 0,
             cashback: 0,
             is_cashback_coin: false,
-            associated_bonding_curve: Pubkey::default(),
-            token_program: Pubkey::default(),
-            creator_vault: Pubkey::default(),
+            associated_bonding_curve: get_account(4).unwrap_or_default(),
+            token_program: get_token_program_or_default(get_account(8).unwrap_or_default()),
+            creator_vault: get_account(9).unwrap_or_default(),
             account: None,
         }))
     }
@@ -675,9 +718,9 @@ impl ShredStreamClient {
             cashback_fee_basis_points: 0,
             cashback: 0,
             is_cashback_coin: false,
-            associated_bonding_curve: Pubkey::default(),
-            token_program: Pubkey::default(),
-            creator_vault: Pubkey::default(),
+            associated_bonding_curve: get_account(4).unwrap_or_default(),
+            token_program: get_token_program_or_default(get_account(9).unwrap_or_default()),
+            creator_vault: get_account(8).unwrap_or_default(),
             account: None,
         }))
     }
@@ -693,6 +736,7 @@ impl ShredStreamClient {
         tx_index: u64,
         recv_us: i64,
         created_mints: &HashSet<Pubkey>,
+        mayhem_mints: &HashSet<Pubkey>,
     ) -> Option<DexEvent> {
         use crate::instr::utils::*;
         use crate::core::events::*;
@@ -716,6 +760,9 @@ impl ShredStreamClient {
         
         // 🔧 关键修复：只有当 mint 在 created_mints 中时，才标记为 is_created_buy
         let is_created_buy = created_mints.contains(&mint);
+        
+        // 🔧 Mayhem Mode 检测：CREATE_V2 指令创建的代币是 Mayhem Mode
+        let is_mayhem_mode = mayhem_mints.contains(&mint);
         
         let metadata = EventMetadata {
             signature,
@@ -752,13 +799,13 @@ impl ShredStreamClient {
             current_sol_volume: 0,
             last_update_timestamp: 0,
             ix_name: "buy_exact_sol_in".to_string(),
-            mayhem_mode: false,
+            mayhem_mode: is_mayhem_mode,
             cashback_fee_basis_points: 0,
             cashback: 0,
             is_cashback_coin: false,
-            associated_bonding_curve: Pubkey::default(),
-            token_program: Pubkey::default(),
-            creator_vault: Pubkey::default(),
+            associated_bonding_curve: get_account(4).unwrap_or_default(),
+            token_program: get_token_program_or_default(get_account(8).unwrap_or_default()),
+            creator_vault: get_account(9).unwrap_or_default(),
             account: None,
         }))
     }

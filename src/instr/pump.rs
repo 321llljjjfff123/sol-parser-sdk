@@ -340,6 +340,8 @@ fn parse_create_v2_instruction(
         mayhem_token_vault: acc[13],
         event_authority: acc[14],
         program: acc[15],
+        // Mayhem Mode: mayhem_program_id (acc[9]) 不为默认值时是 Mayhem Mode
+        is_mayhem_mode: acc[9] != Pubkey::default(),
         ..Default::default()
     }))
 }

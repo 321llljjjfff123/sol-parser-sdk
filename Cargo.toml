@@ -32,19 +32,20 @@ perf-stats = []   # 启用性能统计
 ultra-perf = []   # 极限性能模式（启用所有 unsafe 优化）
 
 [dependencies]
-solana-sdk = "=2.1.21"
+solana-sdk = "3.0.0"
 
-solana-client = "=2.1.21"
-solana-program = "=2.1.21"
-solana-rpc-client = "=2.1.21"
-solana-rpc-client-api = "=2.1.21"
-solana-transaction-status = "=2.1.21"
-solana-account-decoder = "=2.1.21"
-solana-hash = "=2.1.21"
-solana-entry = "=2.1.21"
-solana-rpc-client-nonce-utils = "=2.1.21"
-solana-perf = "=2.1.21"
-solana-metrics = "=2.1.21"
+solana-client = "3.1.12"
+solana-program = "3.0.0"
+solana-rpc-client = "3.1.12"
+solana-rpc-client-api = "3.1.12"
+solana-transaction-status = "3.1.12"
+solana-account-decoder = "3.1.12"
+solana-hash = "3.0.0"
+solana-entry = "3.0.0"
+solana-system-interface = { version = "3.0.0", features = ["bincode"] }
+solana-rpc-client-nonce-utils = "3.1.12"
+solana-perf = "3.1.12"
+solana-metrics = "3.1.12"
 spl-associated-token-account = "6.0.0"
 borsh = { version = "1.5.3", features = ["derive"] }
 serde = { version = "1.0.215", features = ["derive"] }
@@ -59,15 +60,16 @@ memchr = "2.7"
 rand = "0.9.0"
 bincode = "1.3.3"
 anyhow = "1.0.90"
-yellowstone-grpc-client = {  version = "=4.1.0" }
-yellowstone-grpc-proto = {  version = "=4.1.0" }
+yellowstone-grpc-client = "12.1.0"
+yellowstone-grpc-proto = "12.1.0"
 tokio = { version = "1.42.0", features = ["full", "rt-multi-thread"]}
-tonic = { version = "0.12", features = ["transport"] }
+tonic = { version = "0.13", features = ["transport"] }
 rustls = { version = "0.23.23", features = ["ring"], default-features = false }
 ring = "0.17"
 rustls-native-certs = "0.8.1"
 tokio-rustls = "0.26.1"
 tokio-stream = "0.1"
+http-body-util = "0.1"
 log = "0.4.22"
 chrono = "0.4.39"
 regex = "1"

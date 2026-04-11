@@ -2,8 +2,7 @@
 
 use std::time::Duration;
 
-use tonic::transport::ClientTlsConfig;
-use yellowstone_grpc_client::{GeyserGrpcClient, Interceptor};
+use yellowstone_grpc_client::{GeyserGrpcClient, Interceptor, ClientTlsConfig};
 
 /// 连接 Geyser 的常用选项（与业务无关）。
 #[derive(Debug, Clone)]

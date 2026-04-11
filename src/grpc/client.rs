@@ -23,8 +23,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{Duration, Instant};
-use tonic::transport::ClientTlsConfig;
-use yellowstone_grpc_client::GeyserGrpcClient;
+// Note: ClientTlsConfig moved to yellowstone_grpc_client in newer versions
+use yellowstone_grpc_client::{GeyserGrpcClient, ClientTlsConfig};
 use yellowstone_grpc_proto::prelude::*;
 
 static PROGRAM_DATA_FINDER: Lazy<memmem::Finder> =
@@ -297,8 +297,8 @@ impl YellowstoneGrpc {
         last_slot: &mut u64,
         batch_us: u64,
     ) {
-        let block_time_us =
-            timestamp_to_microseconds(&update_msg.created_at.unwrap_or_default()) as i64;
+        let created_at = update_msg.created_at.unwrap_or_default();
+        let block_time_us = timestamp_to_microseconds(created_at.seconds, created_at.nanos) as i64;
         let grpc_recv_us = get_timestamp_us();
 
         let Some(update) = update_msg.update_oneof else { return };
