@@ -19,6 +19,7 @@
 
 use crate::core::events::*;
 use crate::instr::inner_common::*;
+use solana_sdk::pubkey::Pubkey;
 
 // ============================================================================
 // Raydium CPMM

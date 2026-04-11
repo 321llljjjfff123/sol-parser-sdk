@@ -126,3 +126,7 @@ panic = 'abort'
 strip = true
 incremental = false      # 禁用增量编译
 overflow-checks = false  # 禁用溢出检查
+
+# solana-keypair + five8_core DecodeError / SignatureError::from_source compatibility
+[patch.crates-io]
+solana-keypair = { path = "patches/solana-keypair" }
