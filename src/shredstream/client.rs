@@ -200,6 +200,7 @@ impl ShredStreamClient {
             recv_us,
             &mut events,
         );
+        crate::core::pumpfun_fee_enrich::enrich_create_v2_observed_fee_recipient(&mut events);
 
         // 推送到队列
         for mut event in events {
@@ -269,8 +270,8 @@ impl ShredStreamClient {
     /// - created_mints: 所有创建的 mint 地址集合（用于精确判断 is_created_buy）
     /// - mayhem_mints: Mayhem Mode 代币的 mint 地址集合
     ///
-    /// Mayhem Mode 判断方式：
-    /// - CREATE_V2 指令中 mayhem_program_id（账户索引 9）不为默认值时，是 Mayhem Mode
+    /// Mayhem Mode 判断方式（与 IDL `create_v2` 指令数据中的 `is_mayhem_mode` 一致）：
+    /// - CREATE_V2：从 ix data（disc 之后）解析 `is_mayhem_mode`，**不能**用账户 #10 Mayhem Program 推断（非 Mayhem 时该账户仍存在）
     /// - CREATE 指令创建的代币不是 Mayhem Mode
     #[inline]
     fn detect_pumpfun_create_mints(
@@ -293,15 +294,14 @@ impl ShredStreamClient {
                                 if let Some(&mint) = accounts.get(mint_idx as usize) {
                                     created_mints.insert(mint);
 
-                                    // CREATE_V2: 检查 mayhem_program_id（账户索引 9）判断是否是 Mayhem Mode
                                     if disc == discriminators::CREATE_V2 {
-                                        if let Some(&mayhem_program_idx) = ix.accounts.get(9) {
-                                            if let Some(&mayhem_program_id) = accounts.get(mayhem_program_idx as usize) {
-                                                // mayhem_program_id 不为默认值时，是 Mayhem Mode
-                                                if mayhem_program_id != Pubkey::default() {
-                                                    mayhem_mints.insert(mint);
-                                                }
-                                            }
+                                        let is_mayhem = crate::instr::utils::parse_create_v2_tail_fields(
+                                            &ix.data[8..],
+                                        )
+                                        .map(|(_, m, _)| m)
+                                        .unwrap_or(false);
+                                        if is_mayhem {
+                                            mayhem_mints.insert(mint);
                                         }
                                     }
                                 }
@@ -486,40 +486,35 @@ impl ShredStreamClient {
             ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
         };
 
-        let mut offset = 8; // 跳过 discriminator
-
-        // 解析 name (string)
-        let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        let payload = &data[8..];
+        let mut offset = 0usize;
+        let name = if let Some((s, len)) = read_str_unchecked(payload, offset) {
             offset += len;
             s.to_string()
         } else {
             String::new()
         };
-
-        // 解析 symbol (string)
-        let symbol = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        let symbol = if let Some((s, len)) = read_str_unchecked(payload, offset) {
             offset += len;
             s.to_string()
         } else {
             String::new()
         };
-
-        // 解析 uri (string)
-        let uri = if let Some((s, len)) = read_str_unchecked(data, offset) {
+        let uri = if let Some((s, len)) = read_str_unchecked(payload, offset) {
             offset += len;
             s.to_string()
         } else {
             String::new()
         };
+        if payload.len() < offset + 32 + 1 {
+            return None;
+        }
+        let creator = read_pubkey(payload, offset).unwrap_or_default();
+        offset += 32;
+        let is_mayhem_mode = read_bool(payload, offset).unwrap_or(false);
+        offset += 1;
+        let is_cashback_enabled = read_bool(payload, offset).unwrap_or(false);
 
-        // 从指令数据中读取 creator（在 name, symbol, uri 之后）
-        let creator = if offset + 32 <= data.len() {
-            read_pubkey(data, offset).unwrap_or_default()
-        } else {
-            solana_sdk::pubkey::Pubkey::default()
-        };
-
-        // 从账户中读取 mint, bonding_curve, user
         let mint = get_account(0)?;
         let bonding_curve = get_account(2).unwrap_or_default();
         let user = get_account(5).unwrap_or_default();
@@ -533,9 +528,7 @@ impl ShredStreamClient {
             recent_blockhash: None,
         };
 
-        // 检测是否是 Mayhem Mode：mayhem_program_id（账户索引 9）不为默认值
         let mayhem_program_id = get_account(9).unwrap_or_default();
-        let is_mayhem_mode = mayhem_program_id != Pubkey::default();
 
         Some(DexEvent::PumpFunCreateV2(PumpFunCreateV2TokenEvent {
             metadata,
@@ -560,6 +553,7 @@ impl ShredStreamClient {
             event_authority: get_account(14).unwrap_or_default(),
             program: get_account(15).unwrap_or_default(),
             is_mayhem_mode,
+            is_cashback_enabled,
             ..Default::default()
         }))
     }

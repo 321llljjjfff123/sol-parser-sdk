@@ -256,12 +256,13 @@ fn parse_create_instruction(
     }))
 }
 
-/// Parse create_v2 instruction (SPL-22 / Mayhem)
+/// Parse create_v2 instruction (SPL-22；Mayhem 由 **data** 中 `is_mayhem_mode` 决定，不要用 mayhem 程序账户是否非空推断)
 ///
 /// Account indices (idl pumpfun.json create_v2): 0 mint, 1 mint_authority, 2 bonding_curve,
 /// 3 associated_bonding_curve, 4 global, 5 user, 6 system_program, 7 token_program,
 /// 8 associated_token_program, 9 mayhem_program_id, 10 global_params, 11 sol_vault,
 /// 12 mayhem_state, 13 mayhem_token_vault, 14 event_authority, 15 program. 共 16 个账户。
+/// Instruction args (after disc): name, symbol, uri, creator, is_mayhem_mode, is_cashback_enabled (IDL)。
 /// Guard: return None when accounts.len() < 16 to avoid index out of bounds (e.g. ALT-loaded tx).
 fn parse_create_v2_instruction(
     data: &[u8],
@@ -278,7 +279,8 @@ fn parse_create_v2_instruction(
     }
     let acc = &accounts[0..CREATE_V2_MIN_ACCOUNTS];
 
-    let mut offset = 0;
+    // IDL args: name, symbol, uri, creator, is_mayhem_mode, is_cashback_enabled — mint/bc/user 仅在 accounts
+    let mut offset = 0usize;
     let name = if let Some((s, len)) = read_str_unchecked(data, offset) {
         offset += len;
         s.to_string()
@@ -297,23 +299,18 @@ fn parse_create_v2_instruction(
     } else {
         String::new()
     };
-
-    // 读取 mint, bonding_curve, user, creator (在 name, symbol, uri 之后)
-    if data.len() < offset + 32 + 32 + 32 + 32 {
+    if data.len() < offset + 32 + 1 {
         return None;
     }
-
-    let mint = read_pubkey(data, offset).unwrap_or_default();
+    let creator = read_pubkey(data, offset)?;
     offset += 32;
+    let is_mayhem_mode = read_bool(data, offset)?;
+    offset += 1;
+    let is_cashback_enabled = read_bool(data, offset).unwrap_or(false);
 
-    let bonding_curve = read_pubkey(data, offset).unwrap_or_default();
-    offset += 32;
-
-    let user = read_pubkey(data, offset).unwrap_or_default();
-    offset += 32;
-
-    let creator = read_pubkey(data, offset).unwrap_or_default();
-    offset += 32;
+    let mint = acc[0];
+    let bonding_curve = acc[2];
+    let user = acc[5];
 
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
@@ -340,8 +337,8 @@ fn parse_create_v2_instruction(
         mayhem_token_vault: acc[13],
         event_authority: acc[14],
         program: acc[15],
-        // Mayhem Mode: mayhem_program_id (acc[9]) 不为默认值时是 Mayhem Mode
-        is_mayhem_mode: acc[9] != Pubkey::default(),
+        is_mayhem_mode,
+        is_cashback_enabled,
         ..Default::default()
     }))
 }

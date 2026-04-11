@@ -119,6 +119,32 @@ pub fn read_bytes(data: &[u8], offset: usize, length: usize) -> Option<&[u8]> {
     Some(&data[offset..offset + length])
 }
 
+/// `create_v2` 指令 payload（**不含** 8 字节 discriminator）：`name, symbol, uri, creator, is_mayhem_mode, is_cashback_enabled`（IDL `pump.json`）。
+/// `mint` / `bonding_curve` / `user` 在账户里，不在 data 中。
+#[inline]
+pub fn parse_create_v2_tail_fields(data_after_discriminator: &[u8]) -> Option<(Pubkey, bool, bool)> {
+    let mut offset = 0usize;
+    let (_, l) = read_str_unchecked(data_after_discriminator, offset)?;
+    offset += l;
+    let (_, l) = read_str_unchecked(data_after_discriminator, offset)?;
+    offset += l;
+    let (_, l) = read_str_unchecked(data_after_discriminator, offset)?;
+    offset += l;
+    if data_after_discriminator.len() < offset + 32 + 1 {
+        return None;
+    }
+    let creator = read_pubkey(data_after_discriminator, offset)?;
+    offset += 32;
+    let is_mayhem_mode = read_bool(data_after_discriminator, offset)?;
+    offset += 1;
+    let is_cashback_enabled = if offset < data_after_discriminator.len() {
+        read_bool(data_after_discriminator, offset).unwrap_or(false)
+    } else {
+        false
+    };
+    Some((creator, is_mayhem_mode, is_cashback_enabled))
+}
+
 /// Read string with 4-byte length prefix (Borsh format)
 /// Returns (string slice, total bytes consumed including length prefix)
 #[inline]

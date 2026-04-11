@@ -5,7 +5,7 @@
 //! - 高性能：零拷贝，内联优化，并行处理
 //! - 可读性：每个步骤都有明确的注释
 
-use crate::core::{events::*, merger::merge_events};
+use crate::core::{events::*, merger::merge_events, pumpfun_fee_enrich::enrich_create_v2_observed_fee_recipient};
 use crate::grpc::types::EventTypeFilter;
 use crate::instr::read_pubkey_fast;
 use solana_sdk::pubkey::Pubkey;
@@ -124,6 +124,7 @@ pub fn parse_instructions_enhanced(
 
     // 步骤 3: 合并相关事件（instruction + inner instruction）
     let mut merged = merge_instruction_events(result);
+    enrich_create_v2_observed_fee_recipient(&mut merged);
 
     for e in merged.iter_mut() {
         if let Some(m) = e.metadata_mut() {

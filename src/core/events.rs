@@ -117,7 +117,7 @@ pub struct PumpFunTradeEvent {
     pub last_update_timestamp: i64,
     /// Instruction name: "buy" | "sell" | "buy_exact_sol_in"
     pub ix_name: String,
-    /// Mayhem mode flag (new field from IDL update)
+    /// 与链上 / Explorer `tradeEvent` 中 `mayhemMode` 一致（gRPC 日志解析填充；勿用 fee 地址推断）。
     pub mayhem_mode: bool,
     /// Cashback fee basis points (PUMP_CASHBACK_README)
     pub cashback_fee_basis_points: u64,
@@ -248,6 +248,9 @@ pub struct PumpFunCreateV2TokenEvent {
     pub event_authority: Pubkey,
     #[borsh(skip)]
     pub program: Pubkey,
+    /// 同笔交易中后续 Pump Buy 的账户 #2（或 trade 日志中的 fee recipient）；由 `pumpfun_fee_enrich` 回填。
+    #[borsh(skip)]
+    pub observed_fee_recipient: Pubkey,
 }
 
 /// PumpSwap Trade Event - Unified trade event from IDL TradeEvent
